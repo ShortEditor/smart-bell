@@ -123,7 +123,7 @@ main{max-width:1000px;margin:0 auto;padding:18px 12px 50px}
 .fr{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:9px;margin-bottom:12px}
 .fd{display:flex;flex-direction:column;gap:4px}
 .fd label{font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;letter-spacing:.9px}
-input[type=text],input[type=number],input[type=time],input[type=date],select{
+input[type=text],input[type=password],input[type=number],input[type=time],input[type=date],select{
   background:var(--ink3);border:1px solid var(--line);border-radius:7px;color:var(--text);
   padding:8px 10px;font-size:13px;outline:none;width:100%;transition:border-color .2s;color-scheme:dark}
 input:focus,select:focus{border-color:var(--amber)}
@@ -211,6 +211,19 @@ pre.cb{background:var(--ink);border:1px solid var(--line);border-radius:8px;padd
 </style>
 </head>
 <body>
+<!-- ════ LOGIN GATE (username + password, Firebase Auth) ════ -->
+<div id="authGate" style="position:fixed;inset:0;z-index:100000;background:var(--ink);display:flex;align-items:center;justify-content:center;padding:16px">
+  <form id="loginForm" autocomplete="on" style="width:100%;max-width:340px;background:var(--ink2);border:1px solid var(--line);border-radius:12px;padding:22px;display:flex;flex-direction:column;gap:10px">
+    <div style="font-family:Rajdhani,sans-serif;font-size:22px;font-weight:700;color:var(--amber)">SmartBell Login</div>
+    <div style="font-size:11px;color:var(--sub)">Sign in to manage schedules, Wi-Fi and the bell.</div>
+    <div class="fd"><label for="loginUser">Username</label>
+    <input id="loginUser" name="username" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required/></div>
+    <div class="fd"><label for="loginPass">Password</label>
+    <input id="loginPass" name="password" type="password" autocomplete="current-password" required/></div>
+    <div id="loginErr" style="min-height:14px;font-size:12px;color:var(--rose)"></div>
+    <button id="loginBtn" type="submit" class="btn btn-a" style="width:100%;padding:10px">Log In</button>
+  </form>
+</div>
 
 <!-- ════ FIREBASE CONFIG MODAL ════ -->
 <div class="modal-bg" id="cfgModal">
@@ -298,6 +311,7 @@ pre.cb{background:var(--ink);border:1px solid var(--line);border-radius:8px;padd
   <button class="tb" onclick="showTab('exam')">Exam TT</button>
   <button class="tb" onclick="showTab('holidays')">Holidays</button>
   <button class="tb" onclick="showTab('esp32')">ESP32 Status</button>
+  <button class="tb" onclick="showTab('account')">Account</button>
 </nav>
 
 <main>
@@ -594,6 +608,26 @@ pre.cb{background:var(--ink);border:1px solid var(--line);border-radius:8px;padd
 
 </div>
 
+<!-- ════ ACCOUNT ════ -->
+<div class="tab-pane" id="tab-account">
+  <div class="card" style="border-left-color:var(--amber)">
+    <div class="ct" style="color:var(--amber)">Account</div>
+    <div style="font-size:12px;color:var(--sub);margin-bottom:10px">Signed in as <strong id="acctWho" style="color:var(--text)">&mdash;</strong></div>
+    <form id="pwForm" autocomplete="off" style="display:flex;flex-direction:column;gap:10px;max-width:340px">
+      <div class="fd"><label for="pwCur">Current password</label>
+      <input id="pwCur" type="password" autocomplete="current-password" required/></div>
+      <div class="fd"><label for="pwNew">New password (min 6 characters)</label>
+      <input id="pwNew" type="password" autocomplete="new-password" minlength="6" required/></div>
+      <div class="fd"><label for="pwConf">Confirm new password</label>
+      <input id="pwConf" type="password" autocomplete="new-password" minlength="6" required/></div>
+      <div id="pwErr" style="min-height:14px;font-size:12px;color:var(--rose)"></div>
+      <button type="submit" class="btn btn-g">Change Password</button>
+    </form>
+    <div style="margin-top:14px"><button id="logoutBtn" class="btn btn-ghost">Log Out</button></div>
+    <div class="alert a-info" style="margin-top:12px">Forgot the password? There is no email reset for a username login &mdash; an admin resets it from the Firebase console.</div>
+  </div>
+</div>
+
 </main>
 </div>
 
@@ -634,6 +668,90 @@ let wifiTestResult = {};   // /config/wifi_test_result — pending secondary tes
 let currentMode = localStorage.getItem("bellMode") || "regular";
 
 // ════ FIREBASE INIT ════
+
+// ════ AUTH — username + password (Firebase Auth email/password, username mapped to internal address) ════
+const AUTH_EMAIL_SUFFIX = "@smartbell.local";
+let auth = null, authOps = null, authUser = null, cloudStarted = false;
+
+function authErrorMessage(ex) {
+  const c = (ex && ex.code) || "";
+  if (c.indexOf("invalid-credential") >= 0 || c.indexOf("wrong-password") >= 0 || c.indexOf("user-not-found") >= 0) return "Wrong username or password.";
+  if (c.indexOf("too-many-requests") >= 0) return "Too many attempts. Wait a minute and try again.";
+  if (c.indexOf("network-request-failed") >= 0) return "No network. Check your connection.";
+  if (c.indexOf("weak-password") >= 0) return "Password must be at least 6 characters.";
+  if (c.indexOf("requires-recent-login") >= 0) return "Please log out and back in, then retry.";
+  return (ex && ex.message) ? ex.message : "Login failed.";
+}
+
+function showAuthGate() {
+  document.getElementById("authGate").style.display = "flex";
+  setFbStatus("error");
+  document.getElementById("fbLbl").textContent = "Locked";
+}
+function hideAuthGate() {
+  document.getElementById("authGate").style.display = "none";
+  const who = document.getElementById("acctWho");
+  if (who && authUser && authUser.email) who.textContent = authUser.email.split("@")[0];
+}
+
+function wireAuth() {
+  if (wireAuth.done) return; wireAuth.done = true;
+
+  document.getElementById("loginForm").addEventListener("submit", async e => {
+    e.preventDefault();
+    const u = document.getElementById("loginUser").value.trim().toLowerCase();
+    const p = document.getElementById("loginPass").value;
+    const btn = document.getElementById("loginBtn");
+    const err = document.getElementById("loginErr");
+    err.textContent = "";
+    if (!u || !p) { err.textContent = "Enter username and password."; return; }
+    btn.disabled = true; btn.textContent = "Signing in\u2026";
+    try {
+      await authOps.signInWithEmailAndPassword(auth, u + AUTH_EMAIL_SUFFIX, p);
+      document.getElementById("loginPass").value = "";
+    } catch(ex) { err.textContent = authErrorMessage(ex); }
+    btn.disabled = false; btn.textContent = "Log In";
+  });
+
+  document.getElementById("pwForm").addEventListener("submit", async e => {
+    e.preventDefault();
+    const cur = document.getElementById("pwCur").value;
+    const nw  = document.getElementById("pwNew").value;
+    const cf  = document.getElementById("pwConf").value;
+    const err = document.getElementById("pwErr");
+    err.style.color = "var(--rose)"; err.textContent = "";
+    if (!authUser) { err.textContent = "Not signed in."; return; }
+    if (nw.length < 6) { err.textContent = "New password must be at least 6 characters."; return; }
+    if (nw !== cf) { err.textContent = "New passwords do not match."; return; }
+    try {
+      const cred = authOps.EmailAuthProvider.credential(authUser.email, cur);
+      await authOps.reauthenticateWithCredential(authUser, cred);
+      await authOps.updatePassword(authUser, nw);
+      document.getElementById("pwForm").reset();
+      err.style.color = "var(--lime)"; err.textContent = "Password changed \u2713";
+      toast("Password changed \u2713", "success");
+    } catch(ex) { err.textContent = authErrorMessage(ex); }
+  });
+
+  document.getElementById("logoutBtn").addEventListener("click", async () => {
+    try { await authOps.signOut(auth); } finally { location.reload(); }
+  });
+}
+
+function startCloud(fbdb) {
+  if (cloudStarted) return; cloudStarted = true;
+  db = fbdb.getDatabase();
+  fbOps = fbdb;
+  fbReady = true;
+  fbOps.onValue(fbOps.ref(db,".info/connected"), snap => {
+    cloudConnected = snap.val()===true;
+    setFbStatus(cloudConnected ? "connected" : "error");
+  });
+  fbOps.onValue(fbOps.ref(db,".info/serverTimeOffset"), s => serverOffset = Number(s.val())||0);
+  setupListeners();
+  toast("Firebase connected \u2713", "success");
+}
+
 async function initFirebase(cfg) {
   setFbStatus("connecting");
   try {
@@ -641,22 +759,22 @@ async function initFirebase(cfg) {
       await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js");
     const fbdb =
       await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js");
+    const fbauth =
+      await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js");
 
     const app = getApps().length ? getApps()[0] : initializeApp(cfg);
-    db = fbdb.getDatabase(app);
-    fbOps = fbdb;
-    fbReady = true;
-
-    fbOps.onValue(fbOps.ref(db,".info/connected"), snap => {
-      cloudConnected=snap.val()===true;
-      setFbStatus(cloudConnected?"connected":"error");
+    auth = fbauth.getAuth(app);
+    authOps = fbauth;
+    wireAuth();
+    fbauth.onAuthStateChanged(auth, u => {
+      authUser = u || null;
+      if (u) { hideAuthGate(); startCloud(fbdb); }
+      else showAuthGate();
     });
-    fbOps.onValue(fbOps.ref(db,".info/serverTimeOffset"),s=>serverOffset=Number(s.val())||0);
-    setupListeners();
-    toast("Firebase connected ✓", "success");
   } catch(e) {
     setFbStatus("error");
-    toast("Firebase error: " + e.message, "error");
+    const err = document.getElementById("loginErr");
+    if (err) err.textContent = "Could not reach Firebase. Check your connection and reload.";
     console.error(e);
   }
 }
@@ -1336,7 +1454,7 @@ function renderDash() {
 
 // ════ TAB SWITCHING ════
 window.showTab = function(name) {
-  const panes = ["dashboard","regular","exam","holidays","esp32"];
+  const panes = ["dashboard","regular","exam","holidays","esp32","account"];
   panes.forEach(p => document.getElementById("tab-"+p).classList.toggle("visible", p===name));
   document.querySelectorAll(".tb").forEach((b,i) => b.classList.toggle("active", panes[i]===name));
 };
