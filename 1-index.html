@@ -1,0 +1,1513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>SmartBell 5.4.4 — College Bell System</title>
+<meta name="theme-color" content="#0d1117"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-title" content="SmartBell"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+/* ════ RESET ════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#0d1117;--ink2:#161b22;--ink3:#21262d;
+  --line:#30363d;--line2:#404850;--text:#e6edf3;--sub:#8b949e;--dim:#484f58;
+  --amber:#f0a500;--amber2:#ffc107;--teal:#00b4d8;--teal2:#48cae4;
+  --rose:#f85149;--lime:#3fb950;--violet:#bc8cff;--slate:#6e7681;
+  --ga:rgba(240,165,0,.22);--gt:rgba(0,180,216,.22);--gr:rgba(248,81,73,.22);--gl:rgba(63,185,80,.22);
+}
+html,body{min-height:100vh;background:var(--ink);color:var(--text);font-family:'Nunito',sans-serif;overflow-x:hidden}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--ink2)}
+::-webkit-scrollbar-thumb{background:var(--line2);border-radius:3px}
+input,select,button,textarea{font-family:'Nunito',sans-serif}
+body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.06) 2px,rgba(0,0,0,.06) 4px)}
+.app{position:relative;z-index:1;min-height:100vh}
+
+/* ════ TOAST ════ */
+#toast{position:fixed;top:16px;right:16px;z-index:9999;padding:10px 18px;border-radius:8px;
+  font-weight:700;font-size:12px;display:none;max-width:290px;border:1px solid transparent;
+  animation:toastIn .2s cubic-bezier(.34,1.56,.64,1)}
+#toast.success{background:rgba(63,185,80,.15);color:var(--lime);border-color:rgba(63,185,80,.4)}
+#toast.error{background:rgba(248,81,73,.15);color:var(--rose);border-color:rgba(248,81,73,.4)}
+#toast.info{background:rgba(240,165,0,.12);color:var(--amber);border-color:rgba(240,165,0,.3)}
+@keyframes toastIn{from{transform:translateX(18px);opacity:0}to{transform:translateX(0);opacity:1}}
+
+/* ════ HEADER ════ */
+header{display:flex;align-items:center;justify-content:space-between;padding:11px 20px;
+  background:var(--ink2);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:200;gap:10px;flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-ring{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--amber),#d07000);
+  display:flex;align-items:center;justify-content:center;font-size:20px;
+  box-shadow:0 0 14px var(--ga);animation:lp 3s ease-in-out infinite}
+@keyframes lp{0%,100%{box-shadow:0 0 14px var(--ga)}50%{box-shadow:0 0 26px rgba(240,165,0,.5)}}
+.logo-title{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:20px;letter-spacing:.5px;color:var(--amber);line-height:1}
+.logo-sub{font-size:10px;color:var(--sub);font-weight:600;letter-spacing:.8px;text-transform:uppercase}
+.hdr-r{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+
+/* Firebase badge */
+.fb-badge{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;border:1px solid var(--line);
+  font-size:11px;font-weight:700;background:var(--ink3);transition:all .3s}
+.fb-dot{width:7px;height:7px;border-radius:50%;transition:all .3s}
+.fb-dot.connected{background:var(--lime);box-shadow:0 0 6px var(--lime);animation:blink 2s infinite}
+.fb-dot.connecting{background:var(--amber);box-shadow:0 0 6px var(--amber);animation:blink .7s infinite}
+.fb-dot.error{background:var(--rose);box-shadow:0 0 6px var(--rose)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* ════ MODE BAR ════ */
+.mode-bar{display:flex;gap:6px;padding:10px 20px;background:var(--ink2);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.mpill{padding:6px 15px;border-radius:20px;border:1px solid var(--line);background:transparent;color:var(--sub);
+  cursor:pointer;font-size:12px;font-weight:700;transition:all .2s;letter-spacing:.2px;font-family:'Nunito',sans-serif}
+.mpill:hover{color:var(--text);border-color:var(--line2)}
+.mpill.ar{background:rgba(0,180,216,.1);color:var(--teal);border-color:rgba(0,180,216,.5);box-shadow:0 0 10px var(--gt)}
+.mpill.ae{background:rgba(240,165,0,.1);color:var(--amber);border-color:rgba(240,165,0,.5);box-shadow:0 0 10px var(--ga)}
+.mpill.ao{background:rgba(248,81,73,.1);color:var(--rose);border-color:rgba(248,81,73,.5);box-shadow:0 0 10px var(--gr)}
+
+/* ════ CLOCK ════ */
+.clock-hero{background:linear-gradient(180deg,var(--ink2) 0%,var(--ink) 100%);border-bottom:1px solid var(--line);
+  padding:26px 20px 16px;text-align:center;position:relative;overflow:hidden}
+.clock-hero::before{content:'';position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse 60% 50% at 50% 0%,rgba(240,165,0,.06),transparent)}
+.clock-wrap{display:flex;align-items:flex-start;justify-content:center;gap:4px}
+.clock-main{font-family:'Share Tech Mono',monospace;font-size:clamp(52px,12vw,104px);font-weight:400;
+  color:var(--amber);letter-spacing:3px;line-height:1;
+  text-shadow:0 0 36px rgba(240,165,0,.55),0 0 72px rgba(240,165,0,.18)}
+.clock-sub{display:flex;flex-direction:column;padding-top:8px;gap:2px}
+.clock-sec{font-family:'Share Tech Mono',monospace;font-size:clamp(18px,3.5vw,30px);color:var(--teal);
+  text-shadow:0 0 12px rgba(0,180,216,.8);line-height:1}
+.clock-ampm{font-size:12px;color:var(--sub);font-weight:700;text-align:center}
+.clock-date{margin-top:7px;font-size:13px;color:var(--sub)}
+.clock-tz{display:inline-flex;align-items:center;gap:4px;margin-top:4px;font-size:10px;
+  color:var(--violet);font-weight:700;letter-spacing:1px;text-transform:uppercase}
+
+/* ════ STATUS STRIP ════ */
+.ss{display:flex;align-items:center;gap:0;background:var(--ink3);border-bottom:1px solid var(--line);overflow-x:auto}
+.sc{display:flex;flex-direction:column;padding:9px 18px;border-right:1px solid var(--line);flex-shrink:0}
+.sc:last-child{border-right:none;margin-left:auto}
+.sl{font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:1.2px;font-weight:700;margin-bottom:2px}
+.sv{font-size:13px;font-weight:800}
+.ring-btn{margin:0 14px;padding:8px 20px;border-radius:8px;cursor:pointer;
+  background:linear-gradient(135deg,rgba(248,81,73,.14),rgba(248,81,73,.04));
+  border:1px solid rgba(248,81,73,.55);color:var(--rose);font-weight:800;font-size:13px;
+  transition:all .25s;font-family:'Nunito',sans-serif;flex-shrink:0}
+.ring-btn:hover{box-shadow:0 0 18px var(--gr);transform:translateY(-1px)}
+.ring-btn:active{transform:scale(.97)}
+.ring-btn.ringing{animation:rf .35s ease 6}
+@keyframes rf{0%,100%{background:rgba(248,81,73,.14)}50%{background:rgba(248,81,73,.45);box-shadow:0 0 28px var(--gr)}}
+
+/* ════ TABS ════ */
+.tabs{display:flex;background:var(--ink2);border-bottom:1px solid var(--line);overflow-x:auto;position:sticky;top:54px;z-index:100}
+.tb{padding:11px 18px;background:none;border:none;color:var(--sub);cursor:pointer;font-weight:700;
+  font-size:11px;white-space:nowrap;border-bottom:2px solid transparent;transition:all .2s;
+  font-family:'Nunito',sans-serif;letter-spacing:.3px;text-transform:uppercase}
+.tb:hover{color:var(--text)}
+.tb.active{color:var(--amber);border-bottom-color:var(--amber);background:rgba(240,165,0,.04)}
+
+/* ════ MAIN ════ */
+main{max-width:1000px;margin:0 auto;padding:18px 12px 50px}
+.tab-pane{display:none}
+.tab-pane.visible{display:block}
+
+/* ════ CARDS ════ */
+.card{background:var(--ink2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;
+  margin-bottom:12px;border-left:3px solid transparent}
+.ct{font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;margin-bottom:14px;
+  letter-spacing:.5px;text-transform:uppercase}
+.g2{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:12px}
+
+/* ════ FORMS ════ */
+.fr{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:9px;margin-bottom:12px}
+.fd{display:flex;flex-direction:column;gap:4px}
+.fd label{font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;letter-spacing:.9px}
+input[type=text],input[type=password],input[type=number],input[type=time],input[type=date],select{
+  background:var(--ink3);border:1px solid var(--line);border-radius:7px;color:var(--text);
+  padding:8px 10px;font-size:13px;outline:none;width:100%;transition:border-color .2s;color-scheme:dark}
+input:focus,select:focus{border-color:var(--amber)}
+.rr{display:flex;gap:12px;align-items:center;padding-top:4px;flex-wrap:wrap}
+.rl{display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;font-weight:600}
+
+/* ════ BUTTONS ════ */
+.btn{padding:8px 16px;border-radius:7px;font-weight:700;font-size:12px;cursor:pointer;
+  transition:all .2s;font-family:'Nunito',sans-serif;display:inline-flex;align-items:center;gap:5px;border:1px solid}
+.btn-t{background:rgba(0,180,216,.09);border-color:rgba(0,180,216,.45);color:var(--teal)}
+.btn-t:hover{background:rgba(0,180,216,.18);box-shadow:0 0 10px var(--gt)}
+.btn-a{background:rgba(240,165,0,.09);border-color:rgba(240,165,0,.45);color:var(--amber)}
+.btn-a:hover{background:rgba(240,165,0,.18)}
+.btn-g{background:rgba(63,185,80,.09);border-color:rgba(63,185,80,.45);color:var(--lime)}
+.btn-g:hover{background:rgba(63,185,80,.18)}
+.btn-d{background:rgba(248,81,73,.07);border-color:rgba(248,81,73,.35);color:var(--rose);
+  width:26px;height:26px;padding:0;justify-content:center;border-radius:6px;flex-shrink:0}
+.btn-d:hover{background:rgba(248,81,73,.2)}
+.btn-ghost{background:transparent;border-color:var(--line);color:var(--sub)}
+.btn-ghost:hover{color:var(--text);border-color:var(--line2)}
+
+/* ════ LIST ROWS ════ */
+.lr{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.lr:last-child{border-bottom:none}
+.bt{font-family:'Share Tech Mono',monospace;font-size:13px;color:var(--teal);min-width:52px}
+.bl{font-size:13px;font-weight:700;flex:1}
+.bm{font-size:10px;color:var(--sub);margin-top:1px}
+.dt{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--violet);min-width:88px}
+.dn{font-size:11px;color:var(--sub);flex:1}
+.emp{color:var(--dim);font-size:12px;font-style:italic;padding:5px 0}
+.rf2{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
+.rf2 input{flex:1;min-width:120px}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
+
+/* ════ EXAM GROUPS ════ */
+.eg{margin-bottom:10px}
+.eg-hdr{font-size:10px;font-weight:800;color:var(--amber);text-transform:uppercase;letter-spacing:.8px;
+  border-bottom:1px solid var(--line);padding-bottom:4px;margin-bottom:3px}
+
+/* ════ ESP32 STATUS ════ */
+.esp-g{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px;margin-bottom:12px}
+.esp-c{background:var(--ink3);border:1px solid var(--line);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:5px}
+.esp-l{font-size:9px;color:var(--sub);font-weight:700;text-transform:uppercase;letter-spacing:1px}
+.esp-v{font-family:'Share Tech Mono',monospace;font-size:16px}
+.esp-v.online{color:var(--lime);text-shadow:0 0 8px var(--lime)}
+.esp-v.warn{color:var(--amber)}
+.esp-v.offline{color:var(--rose)}
+pre.cb{background:var(--ink);border:1px solid var(--line);border-radius:8px;padding:13px;
+  overflow:auto;font-size:11px;font-family:'Share Tech Mono',monospace;color:#79c0ff;
+  line-height:1.7;max-height:400px;scrollbar-width:thin}
+.wtbl{width:100%;border-collapse:collapse;font-size:12px}
+.wtbl th{text-align:left;padding:6px 11px;background:var(--ink3);color:var(--sub);
+  font-size:10px;text-transform:uppercase;letter-spacing:.8px}
+.wtbl td{padding:6px 11px;border-bottom:1px solid var(--line)}
+.wtbl tr:last-child td{border-bottom:none}
+.wtbl .pin{font-family:'Share Tech Mono',monospace;color:var(--amber);font-size:11px}
+.alert{padding:9px 13px;border-radius:7px;font-size:12px;margin-top:8px;border:1px solid;line-height:1.5}
+.a-warn{background:rgba(240,165,0,.07);border-color:rgba(240,165,0,.3);color:var(--amber2)}
+.a-danger{background:rgba(248,81,73,.07);border-color:rgba(248,81,73,.3);color:var(--rose)}
+.a-info{background:rgba(0,180,216,.07);border-color:rgba(0,180,216,.3);color:var(--teal2)}
+
+/* ════ MODAL ════ */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:500;
+  display:flex;align-items:center;justify-content:center;padding:16px}
+.modal{background:var(--ink2);border:1px solid var(--line);border-radius:12px;padding:22px;
+  max-width:540px;width:100%;max-height:90vh;overflow-y:auto}
+.mt{font-family:'Rajdhani',sans-serif;font-size:19px;font-weight:700;color:var(--amber);margin-bottom:5px;letter-spacing:.5px}
+.ms{font-size:12px;color:var(--sub);margin-bottom:18px;line-height:1.6}
+
+/* ════ NEXT BELL HERO ════ */
+.nb-hero{background:linear-gradient(135deg,rgba(0,180,216,.07),rgba(0,180,216,.02));
+  border:1px solid rgba(0,180,216,.22);border-radius:10px;padding:16px 20px;
+  margin-bottom:12px;display:flex;align-items:center;gap:14px}
+.nb-icon{font-size:34px;flex-shrink:0}
+.nb-l{font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;letter-spacing:1px}
+.nb-v{font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;color:var(--teal);letter-spacing:.3px}
+.nb-cd{font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--sub);margin-top:2px}
+
+/* ════ RESPONSIVE ════ */
+@media(max-width:580px){
+  .g2{grid-template-columns:1fr}
+  .fr{grid-template-columns:1fr}
+  .ss{gap:0}
+}
+</style>
+</head>
+<body>
+<!-- ════ LOGIN GATE (username + password, Firebase Auth) ════ -->
+<div id="authGate" style="position:fixed;inset:0;z-index:100000;background:var(--ink);display:flex;align-items:center;justify-content:center;padding:16px">
+  <form id="loginForm" autocomplete="on" style="width:100%;max-width:340px;background:var(--ink2);border:1px solid var(--line);border-radius:12px;padding:22px;display:flex;flex-direction:column;gap:10px">
+    <div style="font-family:Rajdhani,sans-serif;font-size:22px;font-weight:700;color:var(--amber)">SmartBell Login</div>
+    <div style="font-size:11px;color:var(--sub)">Sign in to manage schedules, Wi-Fi and the bell.</div>
+    <div class="fd"><label for="loginUser">Username</label>
+    <input id="loginUser" name="username" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required/></div>
+    <div class="fd"><label for="loginPass">Password</label>
+    <input id="loginPass" name="password" type="password" autocomplete="current-password" required/></div>
+    <div id="loginErr" style="min-height:14px;font-size:12px;color:var(--rose)"></div>
+    <button id="loginBtn" type="submit" class="btn btn-a" style="width:100%;padding:10px">Log In</button>
+  </form>
+</div>
+
+<!-- ════ FIREBASE CONFIG MODAL ════ -->
+<div class="modal-bg" id="cfgModal">
+  <div class="modal">
+    <div class="mt">🔥 Firebase Configuration</div>
+    <div class="ms">
+      Enter your <strong style="color:var(--amber)">Firebase Realtime Database</strong> credentials.<br>
+      Stored in localStorage only. NOT Firestore — use Realtime Database.<br>
+      <span style="color:var(--rose)">⚠ Without this, ESP32 cannot receive any commands.</span>
+    </div>
+    <div class="fr" style="grid-template-columns:1fr">
+      <div class="fd"><label>API Key</label><input type="text" id="cfgKey" placeholder="AIzaSy..."/></div>
+      <div class="fd"><label>Auth Domain</label><input type="text" id="cfgAuth" placeholder="project.firebaseapp.com"/></div>
+      <div class="fd"><label>Database URL ✱ Required</label><input type="text" id="cfgDb" placeholder="https://project-default-rtdb.firebaseio.com"/></div>
+      <div class="fd"><label>Project ID</label><input type="text" id="cfgPid" placeholder="your-project-id"/></div>
+      <div class="fd"><label>App ID</label><input type="text" id="cfgApp" placeholder="1:123...:web:abc..."/></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
+      <button class="btn btn-t" onclick="saveCfg()">✓ Connect Firebase</button>
+      <button class="btn btn-ghost" onclick="demoMode()">Demo Mode (No Firebase)</button>
+    </div>
+    <div class="alert a-warn" style="margin-top:12px">
+      Demo mode: data stored locally, ESP32 receives NO commands.
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<div class="app">
+
+<!-- ════ HEADER ════ -->
+<header>
+  <div class="logo">
+    <div class="logo-ring">🔔</div>
+    <div>
+      <div class="logo-title">SmartBell</div>
+      <div class="logo-sub">College Bell System · AP</div>
+    </div>
+  </div>
+  <div class="hdr-r">
+    <div class="fb-badge" id="fbBadge">
+      <span class="fb-dot connecting" id="fbDot"></span>
+      <span id="fbLbl">Connecting…</span>
+    </div>
+    <button class="btn btn-ghost" style="font-size:11px;padding:5px 11px" onclick="document.getElementById('cfgModal').style.display='flex'">⚙ Config</button>
+  </div>
+</header>
+
+<!-- ════ CLOCK ════ -->
+<div class="clock-hero">
+  <div class="clock-wrap">
+    <span class="clock-main" id="clkD">--:--</span>
+    <div class="clock-sub">
+      <span class="clock-sec" id="clkS">--</span>
+      <span class="clock-ampm" id="clkAP">--</span>
+    </div>
+  </div>
+  <div class="clock-date" id="clkDate">Loading…</div>
+  <div class="clock-tz">🇮🇳 IST · Andhra Pradesh · UTC +5:30</div>
+</div>
+
+<!-- ════ MODE BAR ════ -->
+<div class="mode-bar">
+  <button class="mpill" id="pR" onclick="setMode('regular')">📅 Regular Timetable</button>
+  <button class="mpill" id="pE" onclick="setMode('exam')">📝 Exam Mode</button>
+  <button class="mpill" id="pO" onclick="setMode('manual_off')">🔕 Manual OFF</button>
+</div>
+
+<!-- ════ STATUS STRIP ════ -->
+<div class="ss">
+  <div class="sc"><span class="sl">Active Mode</span><span class="sv" id="modeDisp" style="color:var(--teal)">Regular</span></div>
+  <div class="sc"><span class="sl">Next Bell</span><span class="sv" id="nbStrip" style="color:var(--amber)">—</span></div>
+  <div class="sc"><span class="sl">Today</span><span class="sv" id="todaySt" style="color:var(--lime)">Normal Day</span></div>
+  <div class="sc"><label for="manualDuration">Manual duration (seconds)</label>
+  <input type="number" id="manualDuration" value="5" min="1" max="5" step="1" style="width:90px;margin:6px 0"/>
+  <button class="ring-btn" id="ringBtn" onclick="manualRing()">🔔 Manual Ring</button>
+  <div id="manualFeedback" role="status" style="font-size:12px;max-width:310px;margin-top:6px;color:var(--sub)">Ready when ESP32 is online</div></div>
+</div>
+
+<!-- ════ TABS ════ -->
+<nav class="tabs">
+  <button class="tb active" onclick="showTab('dashboard')">Dashboard</button>
+  <button class="tb" onclick="showTab('regular')">Regular TT</button>
+  <button class="tb" onclick="showTab('exam')">Exam TT</button>
+  <button class="tb" onclick="showTab('holidays')">Holidays</button>
+  <button class="tb" onclick="showTab('esp32')">ESP32 Status</button>
+  <button class="tb" onclick="showTab('account')">Account</button>
+</nav>
+
+<main>
+
+<!-- ════ DASHBOARD ════ -->
+<div class="tab-pane visible" id="tab-dashboard">
+  <div class="nb-hero">
+    <span class="nb-icon">🔔</span>
+    <div>
+      <div class="nb-l">Next Scheduled Bell</div>
+      <div class="nb-v" id="nbVal">Calculating…</div>
+      <div class="nb-cd" id="nbCd">—</div>
+    </div>
+  </div>
+  <div class="g2">
+    <div>
+      <div class="card" style="border-left-color:var(--teal)">
+        <div class="ct" style="color:var(--teal)">📅 Today's Regular Bells</div>
+        <div id="dashReg"><p class="emp">Loading…</p></div>
+      </div>
+      <div class="card" style="border-left-color:var(--amber)">
+        <div class="ct" style="color:var(--amber)">📝 Today's Exam Bells</div>
+        <div id="dashExm"><p class="emp">Loading…</p></div>
+      </div>
+    </div>
+    <div>
+      <div class="card" style="border-left-color:var(--lime)">
+        <div class="ct" style="color:var(--lime)">🏖 Upcoming Holidays</div>
+        <div id="dashHol"><p class="emp">Loading…</p></div>
+      </div>
+      <div class="card" style="border-left-color:var(--violet)">
+        <div class="ct" style="color:var(--violet)">📆 Exam Dates</div>
+        <div id="dashEd"><p class="emp">Loading…</p></div>
+      </div>
+    </div>
+  </div>
+  <div class="alert a-info">
+    ℹ <strong>Architecture:</strong> This PWA writes data to Firebase Realtime DB only.
+    ESP32 checks commands frequently and targets a timetable refresh every 15s. Network delays can extend these intervals.
+    All bell timing logic runs on ESP32 — system works even when browser is closed.
+  </div>
+</div>
+
+<!-- ════ REGULAR TIMETABLE ════ -->
+<div class="tab-pane" id="tab-regular">
+  <div class="card" style="border-left-color:var(--teal)">
+    <div class="ct" style="color:var(--teal)">➕ Add Regular Period Bell</div>
+    <div class="fr">
+      <div class="fd"><label>Period Label</label><input type="text" id="rLab" placeholder="e.g. Period 1, Lunch Break"/></div>
+      <div class="fd"><label>Bell Time</label><input type="time" id="rTim" value="08:00"/></div>
+      <div class="fd"><label>Duration (seconds)</label><input type="number" id="rDur" value="5" min="1" max="5" step="1"/></div>
+    </div>
+    <button class="btn btn-t" onclick="saveRegPeriod()">💾 Save to Firebase</button>
+  </div>
+  <div class="card" style="border-left-color:var(--slate)">
+    <div class="ct" style="color:var(--sub)">📋 Configured Periods <span id="rCnt" style="color:var(--dim);font-size:11px"></span></div>
+    <div id="regList"><p class="emp">No periods configured</p></div>
+  </div>
+</div>
+
+<!-- ════ EXAM TIMETABLE ════ -->
+<div class="tab-pane" id="tab-exam">
+  <div class="card" style="border-left-color:var(--violet)">
+    <div class="ct" style="color:var(--violet)">📆 Exam Dates</div>
+    <div class="rf2" style="margin-bottom:10px">
+      <input type="date" id="newED"/>
+      <button class="btn btn-a" onclick="addExamDate()">+ Add Date</button>
+    </div>
+    <div id="edList"><p class="emp">No exam dates</p></div>
+  </div>
+  <div class="card" style="border-left-color:var(--amber)">
+    <div class="ct" style="color:var(--amber)">➕ Add Exam Bell</div>
+    <div class="fr">
+      <div class="fd"><label>Label</label><input type="text" id="eLab" placeholder="e.g. Exam Start, Lunch"/></div>
+      <div class="fd"><label>Exam Date</label><select id="eDatSel"><option value="">— Select Date —</option></select></div>
+      <div class="fd"><label>Bell Time</label><input type="time" id="eTim" value="09:00"/></div>
+      <div class="fd"><label>Duration (seconds)</label><input type="number" id="eDur" value="5" min="1" max="5" step="1"/></div>
+    </div>
+    <button class="btn btn-a" onclick="saveExamBell()">💾 Save to Firebase</button>
+  </div>
+  <div class="card" style="border-left-color:var(--slate)">
+    <div class="ct" style="color:var(--sub)" style="display:flex;align-items:center;justify-content:space-between">
+      📋 Exam Schedule
+      <button class="btn" style="border-color:rgba(248,81,73,.4);color:var(--rose);font-size:11px;padding:4px 12px;margin-left:auto" onclick="deleteCompletedExams()">🗑 Delete Past Exams</button>
+    </div>
+    <div id="exmList"><p class="emp">No exam bells added</p></div>
+  </div>
+</div>
+
+<!-- ════ HOLIDAYS ════ -->
+<div class="tab-pane" id="tab-holidays">
+
+  <!-- Auto-holiday info banner -->
+  <div class="alert a-info" style="margin-bottom:12px">
+    🤖 <strong>Auto-Holidays (no entry needed):</strong>
+    All <strong>Sundays</strong> and <strong>2nd Saturdays</strong> are automatically treated as holidays by ESP32.
+  </div>
+
+  <!-- Single date holiday -->
+  <div class="card" style="border-left-color:var(--lime)">
+    <div class="ct" style="color:var(--lime)">🏖 Add Single-Day Holiday</div>
+    <div class="fr">
+      <div class="fd"><label>Date</label><input type="date" id="hDat"/></div>
+      <div class="fd"><label>Name (Optional)</label><input type="text" id="hLab" placeholder="e.g. Diwali, Republic Day"/></div>
+    </div>
+    <button class="btn btn-g" onclick="addHoliday()">+ Add Holiday</button>
+  </div>
+
+  <!-- Holiday range form -->
+  <div class="card" style="border-left-color:var(--amber)">
+    <div class="ct" style="color:var(--amber)">📅 Add Holiday Range (Vacation / Multi-day)</div>
+    <div class="fr">
+      <div class="fd"><label>Range Name</label><input type="text" id="hrLab" placeholder="e.g. Summer Vacation, Dussehra"/></div>
+      <div class="fd"><label>Start Date</label><input type="date" id="hrStart"/></div>
+      <div class="fd"><label>End Date</label><input type="date" id="hrEnd"/></div>
+    </div>
+    <button class="btn btn-a" onclick="addHolidayRange()">+ Add Range</button>
+  </div>
+
+  <!-- List of all holidays -->
+  <div class="card" style="border-left-color:var(--rose)">
+    <div class="ct" style="color:var(--rose)">📋 All Holidays <span id="hCnt" style="color:var(--dim);font-size:11px"></span></div>
+    <div id="holList"><p class="emp">No holidays added</p></div>
+  </div>
+
+  <!-- List of holiday ranges -->
+  <div class="card" style="border-left-color:var(--orange,#ff9f43)">
+    <div class="ct" style="color:#ff9f43">📋 Holiday Ranges <span id="hrCnt" style="color:var(--dim);font-size:11px"></span></div>
+    <div id="hrList"><p class="emp">No holiday ranges added</p></div>
+  </div>
+
+</div>
+
+<!-- ════ ESP32 STATUS ════ -->
+<div class="tab-pane" id="tab-esp32">
+
+  <div class="card" style="border-left-color:var(--teal)">
+    <div class="ct" style="color:var(--teal)">📡 Device Status (Live via Firebase)</div>
+    <div class="esp-g" style="grid-template-columns:repeat(auto-fit,minmax(155px,1fr))">
+      <div class="esp-c"><span class="esp-l">ESP32</span><span class="esp-v offline" id="espConn">Unknown</span></div>
+      <div class="esp-c"><span class="esp-l">Last Heartbeat</span><span class="esp-v" id="espHb" style="color:var(--sub)">—</span></div>
+      <div class="esp-c"><span class="esp-l">Network Mode</span><span class="esp-v" id="espWifi" style="color:var(--sub)">—</span></div>
+      <div class="esp-c"><span class="esp-l">WiFi State</span><span class="esp-v" id="espWifiState" style="color:var(--sub)">—</span></div>
+      <div class="esp-c"><span class="esp-l">RTC / DS3231</span><span class="esp-v" id="espRTC" style="color:var(--sub)">—</span></div>
+      <div class="esp-c"><span class="esp-l">Device Time (IST)</span><span class="esp-v" id="espRTCTime" style="color:var(--amber);font-size:13px">—</span></div>
+      <div class="esp-c"><span class="esp-l">Time Source</span><span class="esp-v" id="espTimeSrc" style="color:var(--sub)">—</span></div>
+      <div class="esp-c"><span class="esp-l">Last NTP Verify</span><span class="esp-v" id="espNTPVerify" style="color:var(--sub);font-size:12px">—</span></div>
+      <div class="esp-c"><span class="esp-l">Last Sched Sync</span><span class="esp-v" id="espSchedSync" style="color:var(--sub);font-size:12px">—</span></div>
+      <div class="esp-c"><span class="esp-l">Schedule Version</span><span class="esp-v" id="espSchedVer" style="color:var(--sub)">—</span></div>
+      <div class="esp-c"><span class="esp-l">Offline Mode</span><span class="esp-v" id="espOffline" style="color:var(--sub)">—</span></div>
+      <div class="esp-c"><span class="esp-l">RSSI</span><span class="esp-v" id="espRSSI" style="color:var(--sub)">—</span></div>
+      <div class="esp-c" style="grid-column:span 2"><span class="esp-l">Last Bell Event ID</span><span class="esp-v" id="espLB" style="color:var(--amber);font-size:12px;font-family:'Share Tech Mono',monospace">—</span></div>
+      <div class="esp-c"><span class="esp-l">Firmware</span><span class="esp-v" id="espFirmware">—</span></div>
+      <div class="esp-c"><span class="esp-l">Previous boot pulse</span><span class="esp-v" id="espInterrupted">—</span></div>
+      <div class="esp-c"><span class="esp-l">Last output duration requested</span><span class="esp-v" id="espDuration">—</span></div>
+      <div class="esp-c"><span class="esp-l">Last completed GPIO pulse</span><span class="esp-v" id="espPulseMeasured">—</span></div>
+      <div class="esp-c"><span class="esp-l">Last reset reason</span><span class="esp-v" id="espResetReason">—</span></div>
+      <div class="esp-c"><span class="esp-l">Device uptime</span><span class="esp-v" id="espUptime">—</span></div>
+      <div class="esp-c"><span class="esp-l">Loaded regular / exam entries</span><span class="esp-v" id="espCounts">—</span></div>
+      <div class="esp-c"><span class="esp-l">Timetable saved for restart</span><span class="esp-v" id="espCache">—</span></div>
+      <div class="esp-c"><span class="esp-l">Last HTTP request</span><span class="esp-v" id="espHttp">—</span></div>
+      <div class="esp-c" style="grid-column:1/-1"><span class="esp-l">Automatic bell status</span><span class="esp-v" id="espAuto" style="white-space:normal">—</span></div>
+      <div class="esp-c" style="grid-column:1/-1"><span class="esp-l">Schedule / output error</span><span class="esp-v" id="espError" style="white-space:normal">—</span></div>
+      <div class="esp-c"><span class="esp-l">Pending WiFi Test</span><span class="esp-v" id="espPendingWifi" style="color:var(--sub)">—</span></div>
+    </div>
+    <div class="alert a-info" style="margin-top:10px">
+      Heartbeat targets 5s; slow networks can delay reports. RTC and network values are the last state reported by the ESP32.
+      Scheduled duplicates are suppressed. Manual requests use individual IDs and do not block the whole minute.
+      If ESP32 offline &gt;2min, check power and WiFi.
+    </div>
+  </div>
+
+  <!-- ── RTC / TIME SETTINGS ── -->
+  <div class="card" style="border-left-color:var(--violet)">
+    <div class="ct" style="color:var(--violet)">🕐 RTC / Time Settings (DS3231)</div>
+    <div class="alert a-info" style="margin-bottom:12px">
+      The external DS3231 module keeps time independently of Wi-Fi.
+      With a valid RTC and a downloaded timetable, the powered ESP32 can run its schedule offline.
+      Use <strong>Sync from NTP</strong> for automatic accurate sync (recommended).
+      App time requests still require both the page and ESP32 to reach Firebase. Manual set cannot reach an offline board.
+    </div>
+
+    <!-- NTP Sync -->
+    <div style="background:var(--ink3);border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin-bottom:10px">
+      <div style="font-size:12px;font-weight:700;color:var(--lime);margin-bottom:6px">🌐 Sync RTC from NTP (Internet Time)</div>
+      <div style="font-size:12px;color:var(--sub);margin-bottom:8px">Copies the ESP32’s NTP-synchronized clock to the DS3231 when correction is needed. Requires Internet and a successful NTP sync.</div>
+      <button class="btn btn-g" onclick="requestNTPSync()">⟳ Sync RTC from NTP Now</button>
+    </div>
+
+    <!-- Manual Set -->
+    <div style="background:var(--ink3);border:1px solid var(--line);border-radius:8px;padding:12px 14px">
+      <div style="font-size:12px;font-weight:700;color:var(--amber);margin-bottom:6px">✏️ Set Date &amp; Time Manually (IST)</div>
+      <div class="fr" style="margin-bottom:10px">
+        <div class="fd"><label>Date</label><input type="date" id="rtcDate"/></div>
+        <div class="fd"><label>Time (HH:MM)</label><input type="time" id="rtcTime"/></div>
+        <div class="fd"><label>Seconds (0-59)</label><input type="number" id="rtcSec" value="0" min="0" max="59"/></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-a" onclick="fillCurrentTime()">⏱ Fill Current Time</button>
+        <button class="btn btn-a" onclick="setManualRTCTime()">💾 Set RTC to This Time</button>
+      </div>
+    </div>
+
+    <!-- Last Sync Info -->
+    <div style="margin-top:10px;font-size:12px;color:var(--sub)">
+      Last processed time config: <span id="rtcLastSync" style="color:var(--lime)">—</span>
+    </div>
+  </div>
+
+  <!-- ── WIFI PRIMARY — change primary college WiFi ── -->
+  <div class="card" style="border-left-color:var(--teal)">
+    <div class="ct" style="color:var(--teal)">🏫 Primary WiFi — College Network</div>
+    <div class="alert a-info" style="margin-bottom:10px">
+      Enter the new primary network. The ESP32 tests it, saves it and switches automatically. Keep the previous hotspot on until success is confirmed.
+    </div>
+    <div class="fr">
+      <div class="fd"><label>College Wi-Fi name (SSID)</label><input type="text" id="wfSSID1" placeholder="e.g. CollegeWiFi_2G"/></div>
+      <div class="fd"><label>Password</label><input type="password" id="wfPASS1" placeholder="College password"/></div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button id="primaryWifiButton" class="btn btn-t" onclick="savePrimaryWiFi()">Save &amp; switch primary</button>
+      <button class="btn" style="border-color:rgba(248,81,73,.5);color:var(--rose)" onclick="sendRestartCmd()">🔄 Restart ESP32</button>
+    </div>
+  </div>
+
+  <div id="primaryWifiResult" class="alert a-info" style="display:none" role="status"></div>
+
+  <!-- ── WIFI SECONDARY — safe test-then-commit ── -->
+  <div class="card" style="border-left-color:var(--amber)">
+    <div class="ct" style="color:var(--amber)">📱 Change Hotspot Wi-Fi</div>
+    <div class="alert a-info" style="margin-bottom:10px">
+      <strong>Safe replacement:</strong> ESP32 tests the new hotspot first.
+      Only switches if the connection succeeds AND Firebase is reachable.
+      If the test fails, the old hotspot is automatically restored.
+      Keep the current hotspot available in case the test fails. The ESP32 needs an Internet connection to receive this change.
+    </div>
+    <div class="fr">
+      <div class="fd"><label>Wi-Fi name (SSID)</label><input type="text" id="wfSSID2" placeholder="e.g. NewAdmin_Hotspot"/></div>
+      <div class="fd"><label>Password</label><input type="password" id="wfPASS2" placeholder="Wi-Fi password" autocomplete="new-password"/></div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button id="saveWifiButton" class="btn btn-a" onclick="saveSecondaryHotspot()">Save Wi-Fi</button>
+      <button class="btn btn-ghost" onclick="togglePassVis()">👁 Show/Hide</button>
+    </div>
+    <!-- Test result feedback -->
+    <div id="wifiTestResult" style="display:none;margin-top:10px;padding:10px 13px;border-radius:7px;font-size:12px;border:1px solid"></div>
+    <div style="margin-top:10px">
+      <div style="font-size:11px;color:var(--sub);margin-bottom:5px">Currently saved (from Firebase)</div>
+      <div id="wifiCurrentDisplay" style="font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--sub);background:var(--ink3);padding:10px;border-radius:7px;border:1px solid var(--line)">Loading…</div>
+    </div>
+    <div class="alert" style="background:rgba(248,81,73,.06);border-color:rgba(248,81,73,.3);color:var(--rose);margin-top:10px;font-size:11px">
+      No-login setup: Wi-Fi passwords are stored in Firebase. Public database rules allow other people to read or change them.
+    </div>
+  </div>
+
+  <!-- ── FIREBASE DB STRUCTURE ── -->
+  <div class="card" style="border-left-color:var(--amber)">
+    <div class="ct" style="color:var(--amber)">🔥 Firebase Realtime DB Structure (v5.0)</div>
+    <pre>/regularPeriods, /examSchedule, /holidays, /holidayRanges, /examDates
+/config/mode
+/config/wifi_primary_pending  — primary test request
+/config/wifi_pending          — secondary test request
+/config/wifiRequestVersion    — unique request counter
+/commands/current            — ID + timestamp + expiry + duration
+/status/wifiChange           — device acknowledgement
+/status/ssid                 — actual connected Wi-Fi</pre>
+  </div>
+
+  <!-- ── DS3231 WIRING ── -->
+  <div class="card" style="border-left-color:var(--lime)">
+    <div class="ct" style="color:var(--lime)">🔌 Hardware Wiring — DS3231 + ESP32</div>
+    <table class="wtbl">
+      <thead><tr><th>ESP32 Pin</th><th>Component</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td class="pin">GPIO 26</td><td>Relay IN1</td><td>Active-LOW; module input must accept 3.3V logic</td></tr>
+        <tr><td class="pin">Module-rated supply</td><td>Relay VCC</td><td>Verify the module supply and JD-VCC arrangement; do not power its coil from 3.3V</td></tr>
+        <tr><td class="pin">GND</td><td>Relay GND</td><td>Common ground (unchanged)</td></tr>
+        <tr style="background:rgba(63,185,80,.04)"><td class="pin">GPIO 21</td><td>DS3231 SDA</td><td>NEW — I2C data</td></tr>
+        <tr style="background:rgba(63,185,80,.04)"><td class="pin">GPIO 22</td><td>DS3231 SCL</td><td>NEW — I2C clock</td></tr>
+        <tr style="background:rgba(63,185,80,.04)"><td class="pin">3.3V</td><td>DS3231 VCC</td><td>NEW — Use 3.3V, NOT 5V</td></tr>
+        <tr style="background:rgba(63,185,80,.04)"><td class="pin">GND</td><td>DS3231 GND</td><td>NEW — Common ground</td></tr>
+        <tr><td class="pin">Bell power circuit</td><td>Qualified installer</td><td>Verify bell nameplate, relay load rating and enclosure before connecting</td></tr>
+      </tbody>
+    </table>
+    <div class="alert" style="background:rgba(63,185,80,.06);border-color:rgba(63,185,80,.3);color:var(--lime);margin-top:10px;font-size:12px">
+      ℹ Use the battery specified for your exact DS3231 breakout. Never put a non-rechargeable CR cell in an enabled charging circuit.
+      The battery preserves RTC time only; the ESP32 and bell still need their own power.
+      Without a working backup battery, a power cut requires time synchronization again.
+    </div>
+    <div class="alert a-danger" style="margin-top:8px">
+      ⚡ 230V AC is lethal. All mains wiring must be done by a licensed electrician in an insulated enclosure.
+    </div>
+  </div>
+
+</div>
+
+<!-- ════ ACCOUNT ════ -->
+<div class="tab-pane" id="tab-account">
+  <div class="card" style="border-left-color:var(--amber)">
+    <div class="ct" style="color:var(--amber)">Account</div>
+    <div style="font-size:12px;color:var(--sub);margin-bottom:10px">Signed in as <strong id="acctWho" style="color:var(--text)">&mdash;</strong></div>
+    <form id="pwForm" autocomplete="off" style="display:flex;flex-direction:column;gap:10px;max-width:340px">
+      <div class="fd"><label for="pwCur">Current password</label>
+      <input id="pwCur" type="password" autocomplete="current-password" required/></div>
+      <div class="fd"><label for="pwNew">New password (min 6 characters)</label>
+      <input id="pwNew" type="password" autocomplete="new-password" minlength="6" required/></div>
+      <div class="fd"><label for="pwConf">Confirm new password</label>
+      <input id="pwConf" type="password" autocomplete="new-password" minlength="6" required/></div>
+      <div id="pwErr" style="min-height:14px;font-size:12px;color:var(--rose)"></div>
+      <button type="submit" class="btn btn-g">Change Password</button>
+    </form>
+    <div style="margin-top:14px"><button id="logoutBtn" class="btn btn-ghost">Log Out</button></div>
+    <div class="alert a-info" style="margin-top:12px">Forgot the password? There is no email reset for a username login &mdash; an admin resets it from the Firebase console.</div>
+  </div>
+</div>
+
+</main>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     FIREBASE + APPLICATION LOGIC
+     Architecture: PWA → Firebase → ESP32 → Relay → Bell
+     ════════════════════════════════════════════════════════ -->
+<script type="module">
+
+// ════ CONSTANTS ════
+const DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+
+// ════ HELPERS ════
+const getIST  = () => new Date(new Date().toLocaleString("en-US", { timeZone:"Asia/Kolkata" }));
+const pad     = n  => String(n).padStart(2, "0");
+const todayIST = () => { const d=getIST(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
+const dayName  = s  => DAYS[new Date(s + "T00:00:00").getDay()];
+
+const esc=v=>String(v??"").replace(/[&<>"\']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","\'":"&#39;"}[c]));
+
+function toast(msg, type="info") {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.className = type; t.style.display = "block";
+  clearTimeout(window._tt);
+  window._tt = setTimeout(() => { t.style.display = "none"; }, 3500);
+}
+
+// ════ STATE ════
+let db = null, fbOps = {}, fbReady = false, cloudConnected = false;
+let wifiBusy=false, latestWifiRequest=null, serverOffset=0, ringSending=false, dbAccessError="";
+const nowCloud=()=>Date.now()+serverOffset;
+const requestID=()=>[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,"0")).join("");
+let regularPeriods = {}, examSchedule = {}, holidays = {}, examDates = {}, esp32St = {};
+let holidayRanges  = {};
+let wifiConfig     = {};
+let timeConfig     = {};   // /config/timeConfig — RTC sync state
+let wifiTestResult = {};   // /config/wifi_test_result — pending secondary test result
+let currentMode = localStorage.getItem("bellMode") || "regular";
+
+// ════ FIREBASE INIT ════
+
+// ════ AUTH — username + password (Firebase Auth email/password, username mapped to internal address) ════
+const AUTH_EMAIL_SUFFIX = "@smartbell.local";
+let auth = null, authOps = null, authUser = null, cloudStarted = false;
+
+function authErrorMessage(ex) {
+  const c = (ex && ex.code) || "";
+  if (c.indexOf("invalid-credential") >= 0 || c.indexOf("wrong-password") >= 0 || c.indexOf("user-not-found") >= 0) return "Wrong username or password.";
+  if (c.indexOf("too-many-requests") >= 0) return "Too many attempts. Wait a minute and try again.";
+  if (c.indexOf("network-request-failed") >= 0) return "No network. Check your connection.";
+  if (c.indexOf("weak-password") >= 0) return "Password must be at least 6 characters.";
+  if (c.indexOf("requires-recent-login") >= 0) return "Please log out and back in, then retry.";
+  return (ex && ex.message) ? ex.message : "Login failed.";
+}
+
+function showAuthGate() {
+  document.getElementById("authGate").style.display = "flex";
+  setFbStatus("error");
+  document.getElementById("fbLbl").textContent = "Locked";
+}
+function hideAuthGate() {
+  document.getElementById("authGate").style.display = "none";
+  const who = document.getElementById("acctWho");
+  if (who && authUser && authUser.email) who.textContent = authUser.email.split("@")[0];
+}
+
+function wireAuth() {
+  if (wireAuth.done) return; wireAuth.done = true;
+
+  document.getElementById("loginForm").addEventListener("submit", async e => {
+    e.preventDefault();
+    const u = document.getElementById("loginUser").value.trim().toLowerCase();
+    const p = document.getElementById("loginPass").value;
+    const btn = document.getElementById("loginBtn");
+    const err = document.getElementById("loginErr");
+    err.textContent = "";
+    if (!u || !p) { err.textContent = "Enter username and password."; return; }
+    btn.disabled = true; btn.textContent = "Signing in\u2026";
+    try {
+      await authOps.signInWithEmailAndPassword(auth, u + AUTH_EMAIL_SUFFIX, p);
+      document.getElementById("loginPass").value = "";
+    } catch(ex) { err.textContent = authErrorMessage(ex); }
+    btn.disabled = false; btn.textContent = "Log In";
+  });
+
+  document.getElementById("pwForm").addEventListener("submit", async e => {
+    e.preventDefault();
+    const cur = document.getElementById("pwCur").value;
+    const nw  = document.getElementById("pwNew").value;
+    const cf  = document.getElementById("pwConf").value;
+    const err = document.getElementById("pwErr");
+    err.style.color = "var(--rose)"; err.textContent = "";
+    if (!authUser) { err.textContent = "Not signed in."; return; }
+    if (nw.length < 6) { err.textContent = "New password must be at least 6 characters."; return; }
+    if (nw !== cf) { err.textContent = "New passwords do not match."; return; }
+    try {
+      const cred = authOps.EmailAuthProvider.credential(authUser.email, cur);
+      await authOps.reauthenticateWithCredential(authUser, cred);
+      await authOps.updatePassword(authUser, nw);
+      document.getElementById("pwForm").reset();
+      err.style.color = "var(--lime)"; err.textContent = "Password changed \u2713";
+      toast("Password changed \u2713", "success");
+    } catch(ex) { err.textContent = authErrorMessage(ex); }
+  });
+
+  document.getElementById("logoutBtn").addEventListener("click", async () => {
+    try { await authOps.signOut(auth); } finally { location.reload(); }
+  });
+}
+
+function startCloud(fbdb) {
+  if (cloudStarted) return; cloudStarted = true;
+  db = fbdb.getDatabase();
+  fbOps = fbdb;
+  fbReady = true;
+  fbOps.onValue(fbOps.ref(db,".info/connected"), snap => {
+    cloudConnected = snap.val()===true;
+    setFbStatus(cloudConnected ? "connected" : "error");
+  });
+  fbOps.onValue(fbOps.ref(db,".info/serverTimeOffset"), s => serverOffset = Number(s.val())||0);
+  setupListeners();
+  toast("Firebase connected \u2713", "success");
+}
+
+async function initFirebase(cfg) {
+  setFbStatus("connecting");
+  try {
+    const { initializeApp, getApps } =
+      await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js");
+    const fbdb =
+      await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js");
+    const fbauth =
+      await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js");
+
+    const app = getApps().length ? getApps()[0] : initializeApp(cfg);
+    auth = fbauth.getAuth(app);
+    authOps = fbauth;
+    wireAuth();
+    fbauth.onAuthStateChanged(auth, u => {
+      authUser = u || null;
+      if (u) { hideAuthGate(); startCloud(fbdb); }
+      else showAuthGate();
+    });
+  } catch(e) {
+    setFbStatus("error");
+    const err = document.getElementById("loginErr");
+    if (err) err.textContent = "Could not reach Firebase. Check your connection and reload.";
+    console.error(e);
+  }
+}
+
+function setFbStatus(s) {
+  const dot = document.getElementById("fbDot");
+  const lbl = document.getElementById("fbLbl");
+  dot.className = "fb-dot " + s;
+  lbl.textContent = { connected:"Firebase ✓", connecting:"Connecting…", error:"Not Connected" }[s] || s;
+}
+
+// ════ REALTIME LISTENERS — live sync from Firebase ════
+function setupListeners() {
+  const { ref } = fbOps;
+  const onValue=(r,callback)=>fbOps.onValue(r,callback,e=>{dbAccessError=e.message;toast("Firebase access error: "+e.message,"error");});
+  onValue(ref(db,"regularPeriods"), s => { regularPeriods = s.val()||{}; renderReg(); renderDash(); calcNext(); });
+  onValue(ref(db,"examSchedule"),   s => { examSchedule   = s.val()||{}; renderExmBells(); renderDash(); calcNext(); });
+  onValue(ref(db,"holidays"),       s => { holidays        = s.val()||{}; renderHol(); renderDash(); calcNext(); });
+  onValue(ref(db,"holidayRanges"),  s => { holidayRanges   = s.val()||{}; renderHol(); calcNext(); });
+  onValue(ref(db,"examDates"),      s => { examDates       = s.val()||{}; renderEd(); renderDash(); calcNext(); });
+  onValue(ref(db,"status"),         s => { dbAccessError=""; esp32St = s.val()||{}; renderESP(); renderWiFiConfig(); renderWiFiTestResult(); renderManualResult(); });
+  onValue(ref(db,"config/wifi"),    s => { wifiConfig      = s.val()||{}; renderWiFiConfig(); });
+  onValue(ref(db,"config/timeConfig"), s => { timeConfig  = s.val()||{}; renderRTCSettings(); });
+  onValue(ref(db,"config/mode"), s=>{const mode=s.val()?.mode;if(mode)paintMode(mode);});
+}
+
+// ════ FIREBASE WRITE HELPERS ════
+const timetablePath=p=>/^(regularPeriods|examSchedule|holidays|holidayRanges|examDates)\//.test(p)||p==="config/mode";
+async function fbSet(path,data) {
+  if(!fbReady||!cloudConnected){toast("Firebase is offline","error");return false;}
+  if(data&&typeof data==="object"&&"duration" in data&&!(Number.isInteger(data.duration)&&data.duration>=1&&data.duration<=MAX_RING_SEC)){toast("Blocked: ring duration is limited to "+MAX_RING_SEC+" seconds","error");return false;}
+  try {
+    if(timetablePath(path)) {
+      const changes={[path]:data,scheduleVersion:fbOps.increment(1)};
+      // Remove older keys at this time so editing cannot create duplicate bells.
+      if(data && path.startsWith("regularPeriods/"))for(const [key,p] of Object.entries(regularPeriods))if(p.time===data.time&&path!=="regularPeriods/"+key)changes["regularPeriods/"+key]=null;
+      if(data && path.startsWith("examSchedule/"))for(const [key,p] of Object.entries(examSchedule))if(p.date===data.date&&p.time===data.time&&path!=="examSchedule/"+key)changes["examSchedule/"+key]=null;
+      await fbOps.update(fbOps.ref(db),changes);
+    } else await fbOps.set(fbOps.ref(db,path),data);
+    return true;
+  } catch(e){toast("Save failed: "+e.message,"error");return false;}
+}
+async function fbDel(path){return fbSet(path,null);}
+function deviceReady() {
+  if(dbAccessError){toast("Firebase access error: "+dbAccessError,"error");return false;}
+  const raw=Number(esp32St.heartbeat)||0,hb=raw>1e12?raw:raw*1000,age=nowCloud()-hb;
+  if(!cloudConnected){toast("This page is disconnected from Firebase","error");return false;}
+  if(!hb){toast("No ESP32 status received. Check its Wi-Fi and Serial Monitor.","error");return false;}
+  if(age< -30000||age>90000){toast("ESP32 status is stale. Check its Wi-Fi; uploading again may not be necessary.","error");return false;}
+  if(esp32St.firmware!=="5.4"){toast("Device reports firmware "+(esp32St.firmware||"unknown")+"; this page needs the matching 5.4 sketch.","error");return false;}
+  return true;
+}
+let pendingManualID="",pendingManualState="",manualWaitTimer=0,pendingManualDuration=0;
+const MAX_RING_SEC=5; // website limit; bell seller recommends 4-5 s per ring
+function readDurationInput(value){const n=Number(value);return String(value).trim()!==""&&Number.isInteger(n)&&n>=1&&n<=MAX_RING_SEC?n:null;}
+function manualFeedback(message){document.getElementById("manualFeedback").textContent=message;}
+function updateRingButton(){document.getElementById("ringBtn").disabled=ringSending||!!pendingManualID||esp32St.ringing===true;}
+function clearManualWait(){clearTimeout(manualWaitTimer);pendingManualID="";pendingManualState="";updateRingButton();}
+window.manualRing=async(requestedDuration)=>{
+  if(ringSending||pendingManualID||!deviceReady())return;
+  if(esp32St.ringing===true){manualFeedback("Output is already active. Wait for it to finish.");return;}
+  if(esp32St.durationProtocol!==1){manualFeedback("Upload SmartBell 5.4.4 firmware first, then wait for its status to refresh.");return;}
+  const duration=readDurationInput(requestedDuration??document.getElementById("manualDuration").value);
+  if(duration===null){toast("Duration must be a whole number from 1 to "+MAX_RING_SEC+" seconds","error");return;}
+  pendingManualDuration=duration;ringSending=true;updateRingButton();
+  const id=requestID(),at=nowCloud();pendingManualID=id;pendingManualState="sent";
+  manualFeedback("Sending "+duration+"-second request. This firmware confirms completion after the pulse ends.");
+  manualWaitTimer=setTimeout(()=>{
+    if(pendingManualID!==id)return;
+    manualFeedback("No confirmed completion. Check ESP32 STATUS. This request will not be retried automatically.");
+    clearManualWait();
+  },(15+duration+15)*1000);
+  try {
+    if(!await fbSet("commands/current",{id,ring:true,duration,updatedAt:at,expiresAt:at+15000})){
+      manualFeedback("Request could not be sent.");clearManualWait();
+    }
+  }finally{ringSending=false;updateRingButton();}
+};
+function renderManualResult(){
+  updateRingButton();const r=esp32St.manualCommand;
+  if(!r||r.id!==pendingManualID||r.state===pendingManualState)return;
+  pendingManualState=r.state;
+  const delay=Number.isFinite(Number(r.latencyMs))?" (received after "+(Number(r.latencyMs)/1000).toFixed(1)+"s)":"";
+  if(r.state==="started"){manualFeedback("ESP32 activated the output for "+(r.duration||pendingManualDuration)+" seconds"+delay+". Waiting for completion.");return;}
+  const measured=Number(r.pulseMs),wanted=Number(r.duration)*1000;
+  const verified=Number.isFinite(measured)&&measured>0&&Math.abs(measured-wanted)<=200;
+  const completion=measured>0?("Requested "+r.duration+"s; ESP32 output timing "+(measured/1000).toFixed(3)+"s"+(verified?".":" — outside the ±0.2s target.")+" This measures GPIO timing, not the bell sound."):"Completion reported without a measured duration. Check ESP32 STATUS.";
+  const messages={interrupted:"ESP32 restarted before this request's completion was confirmed. It will not replay the request. Check reset reason in ESP32 STATUS.",invalid_duration:"Rejected: duration must be 1–60 whole seconds. Nothing was activated.",completed:completion+delay,busy:"Rejected: output was already active. No additional ring was queued.",expired:"Expired before execution. Check the network / device clock; nothing will run later.",timer_error:"Output could not start. Check the reported error in ESP32 STATUS."};
+  manualFeedback(messages[r.state]||("Device result: "+r.state));clearManualWait();
+}
+
+// ════ REGULAR PERIODS CRUD ════
+window.saveRegPeriod = async function() {
+  const label    = document.getElementById("rLab").value.trim();
+  const time     = document.getElementById("rTim").value;
+  const duration = readDurationInput(document.getElementById("rDur").value);
+  if(duration===null){toast("Duration must be 1–"+MAX_RING_SEC+" whole seconds","error");return;}
+  if (!label || !time) { toast("Label and time are required","error"); return; }
+
+  const key   = "period_" + time.replace(":","");
+  const entry = { time, label, duration };
+  if (await fbSet("regularPeriods/" + key, entry)) {
+    document.getElementById("rLab").value = "";
+    await bumpScheduleVersion();   // ← notify ESP32 to re-sync
+    toast("Saved "+duration+"s. Wait for ESP32 schedule sync; use a future minute to test.","success");
+  }
+};
+window.delRegPeriod = async function(key) {
+  if (await fbDel("regularPeriods/" + key)) {
+    await bumpScheduleVersion();
+    toast("Period deleted","info");
+  }
+};
+
+// ════ EXAM DATES CRUD ════
+window.addExamDate = async function() {
+  const date = document.getElementById("newED").value;
+  if (!date) return;
+  const key = date.replace(/-/g,"");
+  if (examDates[key]) { toast("Date already added","error"); return; }
+  if (await fbSet("examDates/" + key, { date })) {
+    await bumpScheduleVersion();
+    toast("Exam date added ✓","success");
+  }
+};
+window.delExamDate = async function(key) {
+  if (await fbDel("examDates/" + key)) {
+    await bumpScheduleVersion();
+    toast("Exam date removed","info");
+  }
+};
+
+// ════ EXAM BELLS CRUD ════
+window.saveExamBell = async function() {
+  const label    = document.getElementById("eLab").value.trim();
+  const date     = document.getElementById("eDatSel").value;
+  const time     = document.getElementById("eTim").value;
+  const duration = readDurationInput(document.getElementById("eDur").value);
+  if(duration===null){toast("Duration must be 1–"+MAX_RING_SEC+" whole seconds","error");return;}
+  if (!label||!date||!time) { toast("Fill all fields","error"); return; }
+
+  const key   = `exam_${date}_${time.replace(":","")}`; // e.g. exam_2026-04-20_0900
+  const entry = { date, time, label, duration };
+  if (await fbSet("examSchedule/" + key, entry)) {
+    document.getElementById("eLab").value = "";
+    await bumpScheduleVersion();
+    toast("Saved "+duration+"s. Wait for ESP32 schedule sync; use a future minute to test.","success");
+  }
+};
+window.delExamBell = async function(key) {
+  if (await fbDel("examSchedule/" + key)) {
+    await bumpScheduleVersion();
+    toast("Exam bell removed","info");
+  }
+};
+
+// ════ HOLIDAYS CRUD ════
+window.addHoliday = async function() {
+  const date  = document.getElementById("hDat").value;
+  const label = document.getElementById("hLab").value.trim();
+  if (!date) return;
+  const key = date.replace(/-/g,"");
+  if (holidays[key]) { toast("Already a holiday","error"); return; }
+  if (await fbSet("holidays/" + key, { date, label })) {
+    document.getElementById("hLab").value = "";
+    await bumpScheduleVersion();
+    toast("Holiday saved ✓","success");
+  }
+};
+window.delHoliday = async function(key) {
+  if (await fbDel("holidays/" + key)) {
+    await bumpScheduleVersion();
+    toast("Holiday removed","info");
+  }
+};
+
+// ════ HOLIDAY RANGES CRUD ════
+window.addHolidayRange = async function() {
+  const label = document.getElementById("hrLab").value.trim();
+  const start = document.getElementById("hrStart").value;
+  const end   = document.getElementById("hrEnd").value;
+  if (!label || !start || !end) { toast("Name, start and end date required","error"); return; }
+  if (end < start)              { toast("End date must be after start date","error"); return; }
+  const key = label.toLowerCase().replace(/[^a-z0-9]/g,"_").slice(0,20) + "_" + start.replace(/-/g,"");
+  if (await fbSet("holidayRanges/" + key, { start, end, label })) {
+    document.getElementById("hrLab").value = "";
+    await bumpScheduleVersion();
+    toast("Holiday range saved ✓","success");
+  }
+};
+window.delHolidayRange = async function(key) {
+  if (await fbDel("holidayRanges/" + key)) {
+    await bumpScheduleVersion();
+    toast("Range removed","info");
+  }
+};
+
+function validWifiInput(ssid,password) {
+  const size=new TextEncoder().encode(ssid).length;
+  if(size<1||size>32){toast("Wi-Fi name must contain 1–32 bytes","error");return false;}
+  if(!/^[\x20-\x7e]{8,63}$/.test(password)){toast("Password must contain 8–63 printable characters","error");return false;}
+  return true;
+}
+function showWifiMessage(target,message){
+  const el=document.getElementById(target==="primary"?"primaryWifiResult":"wifiTestResult");
+  el.style.display="block";el.textContent=message;
+}
+async function saveWifi(target){
+  if(wifiBusy||!deviceReady())return;
+  const primary=target==="primary",suffix=primary?"1":"2";
+  const ssid=document.getElementById("wfSSID"+suffix).value;
+  const password=document.getElementById("wfPASS"+suffix).value;
+  if(!validWifiInput(ssid,password))return;
+  wifiBusy=true;const a=document.getElementById("primaryWifiButton"),b=document.getElementById("saveWifiButton");a.disabled=b.disabled=true;
+  try {
+    const transaction=await fbOps.runTransaction(fbOps.ref(db,"config/wifiRequestVersion"),current=>{
+      const next=Math.max(Number(current)||0,Math.floor(nowCloud()/1000)-1577836800,Number(esp32St.wifiChange?.version)||0)+1;
+      return next<2147483647?next:undefined;
+    },{applyLocally:false});
+    if(!transaction.committed)throw Error("Could not create Wi-Fi request");
+    const version=transaction.snapshot.val(),issuedAt=nowCloud();
+    const data={version,issuedAt,expiresAt:issuedAt+180000,["ssid"+suffix]:ssid,["pass"+suffix]:password};
+    await fbOps.set(fbOps.ref(db,primary?"config/wifi_primary_pending":"config/wifi_pending"),data);
+    latestWifiRequest={target,version};document.getElementById("wfPASS"+suffix).value="";
+    showWifiMessage(target,"Request sent. Waiting for the ESP32 to test “"+ssid+"”. No restart needed.");
+    toast("Wi-Fi change requested","info");
+  }catch(e){showWifiMessage(target,"Save failed: "+e.message);toast(e.message,"error");}
+  finally{wifiBusy=false;a.disabled=b.disabled=false;}
+}
+window.savePrimaryWiFi=()=>saveWifi("primary");
+window.saveSecondaryHotspot=()=>saveWifi("secondary");
+
+
+// ════ RTC — Request NTP Sync ════
+// Increments syncVersion → ESP32 detects change → syncs RTC from NTP
+let rtcRequestBusy=false;
+async function queueTimeRequest(fields) {
+  if(rtcRequestBusy||!deviceReady())return;
+  rtcRequestBusy=true;
+  // Timestamp before network awaits: compensate latency from this exact instant.
+  const issuedAt=nowCloud();
+  try {
+    const result=await fbOps.runTransaction(fbOps.ref(db,"config/timeRequestVersion"),value=>{
+      const version=Math.max(Number(value)||0,Number(timeConfig.syncVersion)||0,Number(timeConfig.processedVersion)||0,Math.floor(issuedAt/1000)-1577836800)+1;
+      return version<2147483647?version:undefined;
+    },{applyLocally:false});
+    if(!result.committed)throw Error("Could not create time request");
+    await fbOps.set(fbOps.ref(db,"config/timeConfig"),{...fields,syncVersion:result.snapshot.val(),issuedAt,expiresAt:issuedAt+180000});
+    toast("Time request queued; wait for its processed version. Both devices need Internet.","info");
+  }catch(e){toast("Time request failed: "+e.message,"error");}
+  finally{rtcRequestBusy=false;}
+}
+window.requestNTPSync = async function() {
+  await queueTimeRequest({useNTP:true});
+};
+window.setManualRTCTime = async function() {
+  const date=document.getElementById("rtcDate").value,time=document.getElementById("rtcTime").value;
+  const sec=Number(document.getElementById("rtcSec").value);
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^\d{2}:\d{2}$/.test(time)){toast("Date and time are required","error");return;}
+  const [year,month,day]=date.split("-").map(Number),[hour,minute]=time.split(":").map(Number);
+  const check=new Date(Date.UTC(year,month-1,day,hour,minute,sec));
+  if(year<2024||year>2035||!Number.isInteger(sec)||sec<0||sec>59||hour>23||minute>59||check.getUTCFullYear()!==year||check.getUTCMonth()!==month-1||check.getUTCDate()!==day){toast("Invalid date or time","error");return;}
+  await queueTimeRequest({useNTP:false,year,month,day,hour,minute,second:sec});
+};
+
+// ════ Fill current IST time into manual fields ════
+window.fillCurrentTime = function() {
+  const now = getIST();
+  const dateStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+  const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  document.getElementById("rtcDate").value = dateStr;
+  document.getElementById("rtcTime").value = timeStr;
+  document.getElementById("rtcSec").value  = now.getSeconds();
+};
+
+// ════ BUMP SCHEDULE VERSION — call after any schedule CRUD ════
+// ESP32 compares its cached version; re-downloads if different.
+async function bumpScheduleVersion() {} // Included in each atomic timetable edit.
+
+function renderWiFiTestResult(){
+  const r=esp32St.wifiChange;if(!r?.target)return;
+  if(latestWifiRequest&&(r.version!==latestWifiRequest.version||r.target!==latestWifiRequest.target))return;
+  let message;
+  if(r.state==="testing")message="ESP32 is testing “"+r.ssid+"”…";
+  else if(r.success===true)message="ESP32 verified and saved “"+r.ssid+"” as "+r.target+" Wi-Fi.";
+  else message="Wi-Fi test failed ("+(r.state||"unknown")+"). Previous settings were kept; the ESP32 is reconnecting.";
+  showWifiMessage(r.target,message);
+}
+
+function renderRTCSettings() {
+  const el = document.getElementById("rtcLastSync");
+  if (!el || !timeConfig) return;
+  if (timeConfig.processedAt) {
+    el.textContent = timeConfig.processedAt +
+      " (last acknowledgement)" +
+      " — v" + (timeConfig.processedVersion || 0);
+  } else {
+    el.textContent = "Never synced via app";
+  }
+}
+
+// ════ SEND RESTART COMMAND ════
+// ESP32 polls /config/restart every 2s, calls ESP.restart() when true.
+window.sendRestartCmd=async()=>{
+  if(!deviceReady()||!confirm("Restart ESP32 after the active ring finishes?"))return;
+  const at=nowCloud();if(await fbSet("config/restart",{restart:true,id:requestID(),issuedAt:at,expiresAt:at+180000}))toast("Restart requested","info");
+};
+
+// ════ TOGGLE PASSWORD VISIBILITY ════
+window.togglePassVis = function() {
+  ["wfPASS1","wfPASS2"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.type = el.type === "password" ? "text" : "password";
+  });
+};
+
+// ════ RENDER CURRENT WIFI CONFIG (from Firebase) ════
+function renderWiFiConfig(){
+  const el=document.getElementById("wifiCurrentDisplay");
+  el.textContent="Connected: "+(esp32St.ssid||"Not reported")+" · Saved primary: "+(esp32St.primarySSID||"Not reported")+" · Saved secondary: "+(esp32St.secondarySSID||"Not reported");
+}
+
+// ════ DELETE PAST EXAM DATES + THEIR BELLS ════
+// Safe delete: matches schedules by date value, not key name
+window.deleteCompletedExams=async()=>{
+  if(!fbReady||!cloudConnected)return;
+  const today=todayIST(),changes={};
+  for(const [k,v] of Object.entries(examDates))if(v.date<today)changes["examDates/"+k]=null;
+  for(const [k,v] of Object.entries(examSchedule))if(v.date<today)changes["examSchedule/"+k]=null;
+  if(!Object.keys(changes).length){toast("No past exams","info");return;}
+  changes.scheduleVersion=fbOps.increment(1);
+  try{await fbOps.update(fbOps.ref(db),changes);toast("Past exams deleted","success");}catch(e){toast(e.message,"error");}
+};
+
+// ════ MODE ════
+function paintMode(mode) {
+  if(!["regular","exam","manual_off"].includes(mode))return;
+  currentMode = mode;
+  localStorage.setItem("bellMode", mode);
+
+  ["pR","pE","pO"].forEach(id => document.getElementById(id).className = "mpill");
+  const cls  = { regular:"ar",exam:"ae",manual_off:"ao" };
+  const mEl  = document.getElementById({ regular:"pR",exam:"pE",manual_off:"pO" }[mode]);
+  if (mEl) mEl.classList.add(cls[mode]);
+
+  const labs  = { regular:"Regular",exam:"Exam",manual_off:"⛔ OFF" };
+  const cols  = { regular:"var(--teal)",exam:"var(--amber)",manual_off:"var(--rose)" };
+  const disp  = document.getElementById("modeDisp");
+  disp.textContent = labs[mode];
+  disp.style.color  = cols[mode];
+
+  calcNext();
+  renderDash();
+
+  // Sync mode preference to Firebase so ESP32 can honor it
+
+};
+
+window.setMode=async mode=>{if(await fbSet("config/mode",{mode,updatedAt:nowCloud()}))paintMode(mode);};
+
+// ════ NEXT BELL (UI display only — mirrors ESP32 priority logic) ════
+// Priority: 1. Exam day → 2. Holiday (incl. auto) → 3. Regular
+function calcNext() {
+  const now      = getIST();
+  const today    = todayIST();
+  const todayKey = today.replace(/-/g,"");
+  const nowStr   = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+
+  const setStrip = (txt) => document.getElementById("nbStrip").textContent = txt;
+  const setHero  = (v,cd) => {
+    document.getElementById("nbVal").textContent = v;
+    document.getElementById("nbCd").textContent  = cd;
+  };
+  const setToday = (txt,col) => {
+    const el = document.getElementById("todaySt");
+    el.textContent = txt; el.style.color = col;
+  };
+
+  if (currentMode === "manual_off") {
+    setStrip("Bells OFF"); setHero("⛔ Bells are manually OFF","—"); setToday("OFF","var(--rose)"); return;
+  }
+
+  // ── PRIORITY 1: Exam day (overrides holiday) ──
+  const isExm = currentMode==="exam"||Object.values(examDates).some(e=>e.date===today);
+  if (isExm) {
+    setToday("📝 Exam Day","var(--amber)");
+    let nextTime = null, nextEntry = null;
+    Object.entries(examSchedule).forEach(([key,e]) => {
+      if (e.date===today && (e.time+":00")>nowStr && (!nextTime||e.time<nextTime))
+        { nextTime = e.time; nextEntry = { ...e, key }; }
+    });
+    if (nextEntry) {
+      setStrip(`${nextEntry.label} @ ${nextEntry.time}`);
+      const [h,m] = nextEntry.time.split(":").map(Number);
+      const bd = new Date(now); bd.setHours(h,m,0,0);
+      const diff = Math.max(0,Math.floor((bd-now)/1000));
+      setHero(`${nextEntry.label} at ${nextEntry.time}`,
+              diff===0?"Scheduled now — check device":`in ${Math.floor(diff/60)}m ${pad(diff%60)}s`);
+    } else {
+      setStrip("No more exam bells"); setHero("No more exam bells today","—");
+    }
+    return;
+  }
+
+  // ── PRIORITY 2: Holiday detection (mirrors ESP32 logic) ──
+  const dow = now.getDay();  // 0=Sun, 6=Sat
+  const dom = now.getDate();
+  const isSunday       = (dow === 0);
+  const is2ndSaturday  = (dow === 6 && dom >= 8 && dom <= 14);
+  const isFbHoliday=Object.values(holidays).some(e=>e.date===today);
+  const isRangeHoliday = Object.values(holidayRanges).some(r => today >= r.start && today <= r.end);
+
+  if (isSunday || is2ndSaturday || isFbHoliday || isRangeHoliday) {
+    let hlabel = "Holiday";
+    if (isSunday)            hlabel = "Sunday";
+    else if (is2ndSaturday)  hlabel = "2nd Saturday";
+    else if (isFbHoliday)    hlabel = Object.values(holidays).find(e=>e.date===today)?.label || "Holiday";
+    else {
+      const range = Object.values(holidayRanges).find(r => today >= r.start && today <= r.end);
+      if (range) hlabel = range.label;
+    }
+    setStrip("Holiday"); setHero("🏖 " + hlabel,"No bells today"); setToday("🏖 Holiday","var(--amber)"); return;
+  }
+
+  // ── PRIORITY 3: Regular timetable ──
+  setToday("Normal Day","var(--lime)");
+  let nextTime = null, nextEntry = null;
+  Object.entries(regularPeriods).forEach(([key,p]) => {
+    if ((p.time+":00") > nowStr && (!nextTime || p.time < nextTime))
+      { nextTime = p.time; nextEntry = { ...p, key }; }
+  });
+
+  if (nextEntry) {
+    setStrip(`${nextEntry.label} @ ${nextEntry.time}`);
+    const [h,m] = nextEntry.time.split(":").map(Number);
+    const bd = new Date(now); bd.setHours(h,m,0,0);
+    const diff = Math.max(0,Math.floor((bd-now)/1000));
+    setHero(`${nextEntry.label} at ${nextEntry.time}`,
+            diff===0?"Scheduled now — check device":`in ${Math.floor(diff/60)}m ${pad(diff%60)}s`);
+  } else {
+    setStrip("No more bells"); setHero("No more bells today","—");
+  }
+}
+
+// ════ CLOCK ════
+// ✅ NOTE: No bell triggering from browser. Clock is display-only.
+function tick() {
+  const now  = getIST();
+  const h    = pad(now.getHours()), m = pad(now.getMinutes()), s = pad(now.getSeconds());
+  document.getElementById("clkD").textContent  = `${h}:${m}`;
+  document.getElementById("clkS").textContent  = s;
+  document.getElementById("clkAP").textContent = now.getHours()>=12 ? "PM":"AM";
+  document.getElementById("clkDate").textContent =
+    now.toLocaleDateString("en-IN",{weekday:"long",year:"numeric",month:"long",day:"numeric",timeZone:"Asia/Kolkata"});
+  calcNext(); // update countdown each second
+}
+
+// ════ ESP32 STATUS RENDERER (v5.1) ════
+function renderESP() {
+  const st  = esp32St;
+  document.getElementById("espFirmware").textContent=st.build||st.firmware||"Unknown";
+  document.getElementById("espInterrupted").textContent=st.durationProtocol!==1?"Not reported by this firmware":st.previousPulseUnconfirmed?("Unconfirmed "+(st.previousPulseSec||"?")+"s request before restart; not replayed"):(st.pulseJournalError?"Completion receipt could not be cleared":"No pending pulse found at boot");
+  document.getElementById("espDuration").textContent=st.lastRingDuration?st.lastRingDuration+" seconds":"—";
+  const pulse=Number(st.lastPulseMs),requested=Number(st.lastPulseRequestedSec);
+  document.getElementById("espPulseMeasured").textContent=Number(st.pulseCount)>0&&Number.isFinite(pulse)?(pulse/1000).toFixed(3)+"s / requested "+requested+"s (software timing)":"No completed pulse reported";
+  const resetNames={0:"Unknown",1:"Power-on",2:"External reset",3:"Software restart",4:"Panic/crash",5:"Interrupt watchdog",6:"Task watchdog",7:"Other watchdog",8:"Deep sleep",9:"Brownout",10:"SDIO reset"};
+  document.getElementById("espResetReason").textContent=st.resetReason!=null?(resetNames[st.resetReason]||"Unknown")+" ("+st.resetReason+")":"Not reported";
+  document.getElementById("espUptime").textContent=st.uptimeMs!=null?Math.floor(Number(st.uptimeMs)/1000)+" seconds":"Not reported";
+  document.getElementById("espCounts").textContent=(st.regularCount??"—")+" / "+(st.examCount??"—");
+  document.getElementById("espCache").textContent=st.scheduleCached===true?"Saved":st.scheduleCached===false?"RAM only / not saved":"Unknown";
+  document.getElementById("espAuto").textContent=st.autoStatus||"Waiting for device report";
+  document.getElementById("espError").textContent=[st.scheduleError,st.relayError].filter(Boolean).join(" · ")||"None reported";
+  document.getElementById("espHttp").textContent=st.lastHttpMs!=null?st.lastHttpMs+" ms · HTTP "+st.lastHttpCode:"—";
+  const hb  = st.heartbeat || 0;
+  // v5.1: heartbeat is UTC epoch seconds from ESP32 time()
+  const hbMs = hb>1e12?hb:hb*1000;
+  const age  = hbMs ? Math.floor((Date.now() - hbMs) / 1000) : Infinity;
+
+  // ── Online / Offline ──
+  const el = document.getElementById("espConn");
+  if (!hb)        { el.textContent = "Unknown";                           el.className = "esp-v offline"; }
+  else if (age>=-30 && age<90){ el.textContent = "Online ✓";                          el.className = "esp-v online"; }
+  else             { el.textContent = `Last seen ${Math.max(0,Math.floor(age/60))}m ago`; el.className = "esp-v warn"; }
+
+  // ── Heartbeat time ──
+  document.getElementById("espHb").textContent =
+    hbMs ? new Date(hbMs).toLocaleTimeString("en-IN", { timeZone:"Asia/Kolkata" }) : "—";
+
+  // ── Network mode ──
+  const wm = (st.wifiMode || "").toUpperCase();
+  const wmEl = document.getElementById("espWifi");
+  wmEl.textContent = wm || "—";
+  wmEl.style.color = wm === "PRIMARY" ? "var(--lime)" : wm === "SECONDARY" ? "var(--amber)" : "var(--rose)";
+
+  // ── WiFi state ──
+  document.getElementById("espWifiState").textContent = st.wifiState || "—";
+
+  // ── RTC status ──
+  const rtcEl = document.getElementById("espRTC");
+  if (st.rtcPresent === false) { rtcEl.textContent = "Not detected"; rtcEl.className = "esp-v warn"; }
+  else if (st.rtcOK === true)        { rtcEl.textContent = "✓ Valid";   rtcEl.className = "esp-v online"; }
+  else if (st.rtcOK === false)  { rtcEl.textContent = "⚠ Invalid"; rtcEl.className = "esp-v warn"; }
+  else                          { rtcEl.textContent = "—";         rtcEl.className = "esp-v"; }
+
+  // ── RTC time (IST string from DS3231) ──
+  document.getElementById("espRTCTime").textContent = st.rtcTime || "—";
+
+  // ── Time source ──
+  const tsEl = document.getElementById("espTimeSrc");
+  tsEl.textContent = st.timeSource || "—";
+  tsEl.style.color = st.timeSource === "DS3231" ? "var(--lime)" : "var(--amber)";
+
+  // ── Last NTP verify (epoch seconds → local time string) ──
+  const ntpEl = document.getElementById("espNTPVerify");
+  if (st.lastNTPVerify && st.lastNTPVerify > 0) {
+    ntpEl.textContent = new Date(st.lastNTPVerify * 1000)
+      .toLocaleString("en-IN", { timeZone:"Asia/Kolkata", dateStyle:"short", timeStyle:"medium" });
+  } else {
+    ntpEl.textContent = "Never";
+  }
+
+  // ── Last schedule sync ──
+  const ssEl = document.getElementById("espSchedSync");
+  if (st.lastSchedSync && st.lastSchedSync > 0) {
+    ssEl.textContent = new Date(st.lastSchedSync * 1000)
+      .toLocaleString("en-IN", { timeZone:"Asia/Kolkata", dateStyle:"short", timeStyle:"medium" });
+  } else {
+    ssEl.textContent = "Never";
+  }
+
+  // ── Schedule version ──
+  document.getElementById("espSchedVer").textContent =
+    st.schedVer != null ? "v" + st.schedVer : "—";
+
+  // ── Offline flag ──
+  const offEl = document.getElementById("espOffline");
+  if (age>=90 || st.offline === true)       { offEl.textContent = "STALE / unknown"; offEl.style.color = "var(--rose)"; }
+  else if (st.offline === false) { offEl.textContent = "Online";  offEl.style.color = "var(--lime)"; }
+  else                           { offEl.textContent = "—";       offEl.style.color = "var(--sub)"; }
+
+  // ── RSSI ──
+  document.getElementById("espRSSI").textContent = st.rssi ? st.rssi + " dBm" : "—";
+
+  // ── Last bell event ID (full type-qualified string) ──
+  document.getElementById("espLB").textContent = st.lastBell || "—";
+
+  // ── Pending WiFi test ──
+  const pwEl = document.getElementById("espPendingWifi");
+  if (st.pendingWifi === true)  { pwEl.textContent = "⏳ Testing…"; pwEl.style.color = "var(--amber)"; }
+  else                          { pwEl.textContent = "None";        pwEl.style.color = "var(--sub)"; }
+}
+
+// ════ RENDER HELPERS ════
+const bellRow = (p, delFn, key) =>
+  `<div class="lr"><div class="bt">${esc(p.time)}</div><div style="flex:1">
+    <div class="bl">${esc(p.label)}</div>
+    <div class="bm">Duration: ${esc(p.duration)} seconds${Number(p.duration)>MAX_RING_SEC?" ⚠ over the "+MAX_RING_SEC+"s limit - edit and re-save":""}</div>
+  </div><button class="btn btn-t" data-test-duration="${esc(p.duration)}">Test ${esc(p.duration)}s now</button><button class="btn btn-d" data-delete="${delFn}" data-key="${esc(key)}">✕</button></div>`;
+
+document.addEventListener("click",e=>{const t=e.target.closest("[data-test-duration]");if(t){window.manualRing(t.dataset.testDuration);return;}const b=e.target.closest("[data-delete]");if(b&&["delRegPeriod","delExamDate","delExamBell","delHoliday","delHolidayRange"].includes(b.dataset.delete))window[b.dataset.delete](b.dataset.key);});
+
+function renderReg() {
+  const sorted = Object.entries(regularPeriods).sort((a,b)=>a[1].time.localeCompare(b[1].time));
+  document.getElementById("rCnt").textContent = sorted.length ? `(${sorted.length})` : "";
+  document.getElementById("regList").innerHTML = sorted.length
+    ? sorted.map(([k,p])=>bellRow(p,"delRegPeriod",k)).join("")
+    : `<p class="emp">No periods configured yet</p>`;
+}
+
+function renderEd() {
+  const sorted = Object.entries(examDates).sort((a,b)=>a[1].date.localeCompare(b[1].date));
+  document.getElementById("edList").innerHTML = sorted.length
+    ? sorted.map(([k,d])=>`<div class="lr"><span class="dt">${esc(d.date)}</span>
+        <span class="dn">${dayName(d.date)}</span>
+        <button class="btn btn-d" data-delete="delExamDate" data-key="${esc(k)}">✕</button></div>`).join("")
+    : `<p class="emp">No exam dates</p>`;
+
+  const sel = document.getElementById("eDatSel");
+  sel.innerHTML = `<option value="">— Select Date —</option>` +
+    sorted.map(([,d])=>`<option value="${esc(d.date)}">${esc(d.date)} (${dayName(d.date)})</option>`).join("");
+}
+
+function renderExmBells() {
+  const edSorted = Object.entries(examDates).sort((a,b)=>a[1].date.localeCompare(b[1].date));
+  if (!edSorted.length) { document.getElementById("exmList").innerHTML=`<p class="emp">Add exam dates first</p>`; return; }
+  document.getElementById("exmList").innerHTML = edSorted.map(([,ed])=>{
+    const bells = Object.entries(examSchedule).filter(([,b])=>b.date===ed.date)
+      .sort((a,b)=>a[1].time.localeCompare(b[1].time));
+    return `<div class="eg"><div class="eg-hdr">📅 ${esc(ed.date)} — ${dayName(ed.date)}</div>
+      ${bells.length ? bells.map(([k,b])=>bellRow(b,"delExamBell",k)).join("")
+        : `<p class="emp" style="padding-left:10px">No bells for this date</p>`}
+    </div>`;
+  }).join("");
+}
+
+function renderHol() {
+  // ── Single-date holidays ──
+  const sorted = Object.entries(holidays).sort((a,b)=>a[1].date.localeCompare(b[1].date));
+  document.getElementById("hCnt").textContent = sorted.length ? `(${sorted.length})` : "";
+  document.getElementById("holList").innerHTML = sorted.length
+    ? sorted.map(([k,h])=>`<div class="lr"><span class="dt">${esc(h.date)}</span>
+        <span class="dn">${esc(h.label||dayName(h.date))}</span>
+        <button class="btn btn-d" data-delete="delHoliday" data-key="${esc(k)}">✕</button></div>`).join("")
+    : `<p class="emp">No single-date holidays added</p>`;
+
+  // ── Holiday ranges ──
+  const rsorted = Object.entries(holidayRanges).sort((a,b)=>a[1].start.localeCompare(b[1].start));
+  const hrCnt = document.getElementById("hrCnt");
+  if (hrCnt) hrCnt.textContent = rsorted.length ? `(${rsorted.length})` : "";
+  const hrList = document.getElementById("hrList");
+  if (hrList) {
+    hrList.innerHTML = rsorted.length
+      ? rsorted.map(([k,r])=>`<div class="lr">
+          <div style="flex:1">
+            <div class="bl">${esc(r.label)}</div>
+            <div class="bm" style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--violet)">
+              ${esc(r.start)} → ${esc(r.end)}
+            </div>
+          </div>
+          <button class="btn btn-d" data-delete="delHolidayRange" data-key="${esc(k)}">✕</button></div>`).join("")
+      : `<p class="emp">No holiday ranges added</p>`;
+  }
+}
+
+function renderDash() {
+  const today = todayIST(), todayKey = today.replace(/-/g,"");
+  const now   = getIST();
+  const dow   = now.getDay(), dom = now.getDate();
+
+  // Compute holiday status (mirrors ESP32 priority)
+  const isExm = currentMode==="exam"||Object.values(examDates).some(e=>e.date===today);
+  const isSun          = (dow === 0);
+  const is2ndSat       = (dow === 6 && dom >= 8 && dom <= 14);
+  const isFbHol=Object.values(holidays).some(e=>e.date===today);
+  const isRangeHol     = Object.values(holidayRanges).some(r => today >= r.start && today <= r.end);
+  const isHol          = !isExm && (isSun || is2ndSat || isFbHol || isRangeHol);
+
+  // Regular bells card
+  const dr = document.getElementById("dashReg");
+  if (isExm) {
+    dr.innerHTML=`<span class="chip" style="background:rgba(240,165,0,.1);color:var(--amber);border:1px solid rgba(240,165,0,.3)">📝 Exam day — exam timetable active</span>`;
+  } else if (isHol) {
+    let hlbl = isSun?"Sunday":is2ndSat?"2nd Saturday":isFbHol?(Object.values(holidays).find(e=>e.date===today)?.label||"Holiday"):"Holiday";
+    dr.innerHTML=`<span class="chip" style="background:rgba(248,81,73,.1);color:var(--rose);border:1px solid rgba(248,81,73,.3)">🏖 ${esc(hlbl)} – No Bells</span>`;
+  } else {
+    const s = Object.entries(regularPeriods).sort((a,b)=>a[1].time.localeCompare(b[1].time));
+    dr.innerHTML = s.length ? s.map(([,p])=>`<div class="lr"><div class="bt">${esc(p.time)}</div>
+      <div style="flex:1"><div class="bl">${esc(p.label)}</div>
+      <div class="bm">Duration: ${esc(p.duration)} seconds</div></div></div>`).join("")
+      : `<p class="emp">No periods configured</p>`;
+  }
+
+  // Exam bells card
+  const de = document.getElementById("dashExm");
+  if (!isExm) {
+    de.innerHTML=`<span class="chip" style="background:rgba(107,114,128,.1);color:var(--sub);border:1px solid rgba(107,114,128,.3)">Not an exam day</span>`;
+  } else {
+    const s = Object.entries(examSchedule).filter(([,b])=>b.date===today).sort((a,b)=>a[1].time.localeCompare(b[1].time));
+    de.innerHTML = s.length ? s.map(([,b])=>`<div class="lr"><div class="bt">${esc(b.time)}</div>
+      <div style="flex:1"><div class="bl">${esc(b.label)}</div>
+      <div class="bm">Duration: ${esc(b.duration)} seconds</div></div></div>`).join("")
+      : `<p class="emp">No exam bells for today</p>`;
+  }
+
+  // Upcoming holidays (single dates only — ranges shown in Holidays tab)
+  const dh = document.getElementById("dashHol");
+  const uh = Object.entries(holidays).filter(([,h])=>h.date>=today).sort((a,b)=>a[1].date.localeCompare(b[1].date)).slice(0,5);
+  dh.innerHTML = uh.length ? uh.map(([,h])=>`<div class="lr"><span class="dt">${esc(h.date)}</span>
+    <span class="dn">${esc(h.label||dayName(h.date))}</span></div>`).join("")
+    : `<p class="emp">No upcoming holidays</p>`;
+
+  // Exam dates
+  const dd = document.getElementById("dashEd");
+  const ue = Object.entries(examDates).filter(([,d])=>d.date>=today).sort((a,b)=>a[1].date.localeCompare(b[1].date)).slice(0,6);
+  dd.innerHTML = ue.length ? ue.map(([,d])=>`<div class="lr"><span class="dt">${esc(d.date)}</span>
+    <span class="dn">${dayName(d.date)}</span></div>`).join("")
+    : `<p class="emp">No upcoming exam dates</p>`;
+}
+
+// ════ TAB SWITCHING ════
+window.showTab = function(name) {
+  const panes = ["dashboard","regular","exam","holidays","esp32","account"];
+  panes.forEach(p => document.getElementById("tab-"+p).classList.toggle("visible", p===name));
+  document.querySelectorAll(".tb").forEach((b,i) => b.classList.toggle("active", panes[i]===name));
+};
+
+// ════ CONFIG MODAL ════
+window.saveCfg = function() {
+  const cfg = {
+    apiKey:      document.getElementById("cfgKey").value.trim(),
+    authDomain:  document.getElementById("cfgAuth").value.trim(),
+    databaseURL: document.getElementById("cfgDb").value.trim(),
+    projectId:   document.getElementById("cfgPid").value.trim(),
+    appId:       document.getElementById("cfgApp").value.trim(),
+  };
+  if (!cfg.apiKey||!cfg.databaseURL) { toast("API Key and Database URL required","error"); return; }
+  localStorage.setItem("fbCfg", JSON.stringify(cfg));
+  document.getElementById("cfgModal").style.display = "none";
+  initFirebase(cfg);
+};
+window.demoMode = function() {
+  document.getElementById("cfgModal").style.display = "none";
+  setFbStatus("error");
+  document.getElementById("fbLbl").textContent = "Demo Mode";
+  toast("Demo mode — ESP32 receives no commands","error");
+};
+
+// ════ STARTUP ════
+const todStr = todayIST();
+document.getElementById("newED").value   = todStr;
+document.getElementById("hDat").value    = todStr;
+document.getElementById("hrStart").value = todStr;
+document.getElementById("hrEnd").value   = todStr;
+// RTC manual-set defaults to current IST time
+const _now = getIST();
+document.getElementById("rtcDate").value = todStr;
+document.getElementById("rtcTime").value = `${pad(_now.getHours())}:${pad(_now.getMinutes())}`;
+document.getElementById("rtcSec").value  = _now.getSeconds();
+paintMode(currentMode);
+setInterval(tick, 1000); tick();
+
+const PROJECT_CONFIG = {
+  apiKey:            "AIzaSyCJrOtWEEZPfbqUw2cGC7UrDvr6PzoXenM",
+  authDomain:        "smart-bell-b2fc0.firebaseapp.com",
+  databaseURL:       "https://smart-bell-b2fc0-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:         "smart-bell-b2fc0",
+  storageBucket:     "smart-bell-b2fc0.firebasestorage.app",
+  messagingSenderId: "449105244523",
+  appId:             "1:449105244523:web:879ec2a24250b4b04f5c2e"
+};
+document.getElementById("cfgModal").style.display="none";
+initFirebase(PROJECT_CONFIG);
+</script>
+
+</body>
+</html>
