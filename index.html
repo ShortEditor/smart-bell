@@ -299,7 +299,7 @@ pre.cb{background:var(--ink);border:1px solid var(--line);border-radius:8px;padd
   <div class="sc"><span class="sl">Next Bell</span><span class="sv" id="nbStrip" style="color:var(--amber)">—</span></div>
   <div class="sc"><span class="sl">Today</span><span class="sv" id="todaySt" style="color:var(--lime)">Normal Day</span></div>
   <div class="sc"><label for="manualDuration">Manual duration (seconds)</label>
-  <input type="number" id="manualDuration" value="10" min="1" max="60" step="1" style="width:90px;margin:6px 0"/>
+  <input type="number" id="manualDuration" value="5" min="1" max="5" step="1" style="width:90px;margin:6px 0"/>
   <button class="ring-btn" id="ringBtn" onclick="manualRing()">🔔 Manual Ring</button>
   <div id="manualFeedback" role="status" style="font-size:12px;max-width:310px;margin-top:6px;color:var(--sub)">Ready when ESP32 is online</div></div>
 </div>
@@ -362,7 +362,7 @@ pre.cb{background:var(--ink);border:1px solid var(--line);border-radius:8px;padd
     <div class="fr">
       <div class="fd"><label>Period Label</label><input type="text" id="rLab" placeholder="e.g. Period 1, Lunch Break"/></div>
       <div class="fd"><label>Bell Time</label><input type="time" id="rTim" value="08:00"/></div>
-      <div class="fd"><label>Duration (seconds)</label><input type="number" id="rDur" value="5" min="1" max="60" step="1"/></div>
+      <div class="fd"><label>Duration (seconds)</label><input type="number" id="rDur" value="5" min="1" max="5" step="1"/></div>
     </div>
     <button class="btn btn-t" onclick="saveRegPeriod()">💾 Save to Firebase</button>
   </div>
@@ -388,7 +388,7 @@ pre.cb{background:var(--ink);border:1px solid var(--line);border-radius:8px;padd
       <div class="fd"><label>Label</label><input type="text" id="eLab" placeholder="e.g. Exam Start, Lunch"/></div>
       <div class="fd"><label>Exam Date</label><select id="eDatSel"><option value="">— Select Date —</option></select></div>
       <div class="fd"><label>Bell Time</label><input type="time" id="eTim" value="09:00"/></div>
-      <div class="fd"><label>Duration (seconds)</label><input type="number" id="eDur" value="5" min="1" max="60" step="1"/></div>
+      <div class="fd"><label>Duration (seconds)</label><input type="number" id="eDur" value="5" min="1" max="5" step="1"/></div>
     </div>
     <button class="btn btn-a" onclick="saveExamBell()">💾 Save to Firebase</button>
   </div>
@@ -805,6 +805,7 @@ function setupListeners() {
 const timetablePath=p=>/^(regularPeriods|examSchedule|holidays|holidayRanges|examDates)\//.test(p)||p==="config/mode";
 async function fbSet(path,data) {
   if(!fbReady||!cloudConnected){toast("Firebase is offline","error");return false;}
+  if(data&&typeof data==="object"&&"duration" in data&&!(Number.isInteger(data.duration)&&data.duration>=1&&data.duration<=MAX_RING_SEC)){toast("Blocked: ring duration is limited to "+MAX_RING_SEC+" seconds","error");return false;}
   try {
     if(timetablePath(path)) {
       const changes={[path]:data,scheduleVersion:fbOps.increment(1)};
@@ -827,7 +828,8 @@ function deviceReady() {
   return true;
 }
 let pendingManualID="",pendingManualState="",manualWaitTimer=0,pendingManualDuration=0;
-function readDurationInput(value){const n=Number(value);return String(value).trim()!==""&&Number.isInteger(n)&&n>=1&&n<=60?n:null;}
+const MAX_RING_SEC=5; // website limit; bell seller recommends 4-5 s per ring
+function readDurationInput(value){const n=Number(value);return String(value).trim()!==""&&Number.isInteger(n)&&n>=1&&n<=MAX_RING_SEC?n:null;}
 function manualFeedback(message){document.getElementById("manualFeedback").textContent=message;}
 function updateRingButton(){document.getElementById("ringBtn").disabled=ringSending||!!pendingManualID||esp32St.ringing===true;}
 function clearManualWait(){clearTimeout(manualWaitTimer);pendingManualID="";pendingManualState="";updateRingButton();}
@@ -836,7 +838,7 @@ window.manualRing=async(requestedDuration)=>{
   if(esp32St.ringing===true){manualFeedback("Output is already active. Wait for it to finish.");return;}
   if(esp32St.durationProtocol!==1){manualFeedback("Upload SmartBell 5.4.4 firmware first, then wait for its status to refresh.");return;}
   const duration=readDurationInput(requestedDuration??document.getElementById("manualDuration").value);
-  if(duration===null){toast("Duration must be a whole number from 1 to 60 seconds","error");return;}
+  if(duration===null){toast("Duration must be a whole number from 1 to "+MAX_RING_SEC+" seconds","error");return;}
   pendingManualDuration=duration;ringSending=true;updateRingButton();
   const id=requestID(),at=nowCloud();pendingManualID=id;pendingManualState="sent";
   manualFeedback("Sending "+duration+"-second request. This firmware confirms completion after the pulse ends.");
@@ -869,7 +871,7 @@ window.saveRegPeriod = async function() {
   const label    = document.getElementById("rLab").value.trim();
   const time     = document.getElementById("rTim").value;
   const duration = readDurationInput(document.getElementById("rDur").value);
-  if(duration===null){toast("Duration must be 1–60 whole seconds","error");return;}
+  if(duration===null){toast("Duration must be 1–"+MAX_RING_SEC+" whole seconds","error");return;}
   if (!label || !time) { toast("Label and time are required","error"); return; }
 
   const key   = "period_" + time.replace(":","");
@@ -911,7 +913,7 @@ window.saveExamBell = async function() {
   const date     = document.getElementById("eDatSel").value;
   const time     = document.getElementById("eTim").value;
   const duration = readDurationInput(document.getElementById("eDur").value);
-  if(duration===null){toast("Duration must be 1–60 whole seconds","error");return;}
+  if(duration===null){toast("Duration must be 1–"+MAX_RING_SEC+" whole seconds","error");return;}
   if (!label||!date||!time) { toast("Fill all fields","error"); return; }
 
   const key   = `exam_${date}_${time.replace(":","")}`; // e.g. exam_2026-04-20_0900
@@ -1329,7 +1331,7 @@ function renderESP() {
 const bellRow = (p, delFn, key) =>
   `<div class="lr"><div class="bt">${esc(p.time)}</div><div style="flex:1">
     <div class="bl">${esc(p.label)}</div>
-    <div class="bm">Duration: ${esc(p.duration)} seconds</div>
+    <div class="bm">Duration: ${esc(p.duration)} seconds${Number(p.duration)>MAX_RING_SEC?" ⚠ over the "+MAX_RING_SEC+"s limit - edit and re-save":""}</div>
   </div><button class="btn btn-t" data-test-duration="${esc(p.duration)}">Test ${esc(p.duration)}s now</button><button class="btn btn-d" data-delete="${delFn}" data-key="${esc(key)}">✕</button></div>`;
 
 document.addEventListener("click",e=>{const t=e.target.closest("[data-test-duration]");if(t){window.manualRing(t.dataset.testDuration);return;}const b=e.target.closest("[data-delete]");if(b&&["delRegPeriod","delExamDate","delExamBell","delHoliday","delHolidayRange"].includes(b.dataset.delete))window[b.dataset.delete](b.dataset.key);});
