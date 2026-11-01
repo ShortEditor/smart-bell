@@ -1509,5 +1509,33 @@ document.getElementById("cfgModal").style.display="none";
 initFirebase(PROJECT_CONFIG);
 </script>
 
+<script>
+/* Ring duration inputs: reject typing/pasting above MAX 5 and show the error under the box */
+(function(){
+  ["manualDuration","rDur","eDur"].forEach(function(id){
+    var el=document.getElementById(id); if(!el) return;
+    var err=document.createElement("div");
+    err.setAttribute("role","alert");
+    err.style.cssText="display:none;color:#ff5c5c;font-size:11px;margin-top:3px;font-weight:600";
+    el.insertAdjacentElement("afterend",err);
+    var last=el.value, timer=0;
+    function show(m){err.textContent=m;err.style.display="block";el.style.borderColor="#ff5c5c";clearTimeout(timer);timer=setTimeout(function(){err.style.display="none";el.style.borderColor="";},4000);}
+    function clear(){err.style.display="none";el.style.borderColor="";}
+    el.addEventListener("keydown",function(e){
+      if(e.ctrlKey||e.metaKey||e.altKey||e.key.length!==1) return;
+      if(!/[0-9]/.test(e.key)){e.preventDefault();show("Whole numbers 1 to 5 only");}
+    });
+    el.addEventListener("input",function(){
+      var v=el.value;
+      if(v===""){ if(el.validity&&el.validity.badInput){el.value=last;show("Whole numbers 1 to 5 only");} else {last="";clear();} return; }
+      var n=Number(v);
+      if(!/^[0-9]+$/.test(v)){el.value=last;show("Whole numbers 1 to 5 only");return;}
+      if(n>5){el.value=last;show("Maximum is 5 seconds");return;}
+      if(n<1){el.value=last;show("Minimum is 1 second");return;}
+      last=v;clear();
+    });
+  });
+})();
+</script>
 </body>
 </html>
