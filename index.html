@@ -7,6 +7,12 @@
 <meta name="theme-color" content="#0d1117"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-title" content="SmartBell"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="application-name" content="SmartBell"/>
+<link rel="manifest" href="manifest.json"/>
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png"/>
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet"/>
 <style>
@@ -1535,6 +1541,114 @@ initFirebase(PROJECT_CONFIG);
       last=v;clear();
     });
   });
+})();
+</script>
+
+<!-- ════ PWA INSTALL PROMPT ════ -->
+<style>
+#pwaInstall{position:fixed;left:50%;bottom:18px;transform:translateX(-50%) translateY(140%);z-index:9998;
+  width:min(92vw,380px);background:var(--ink2);border:1px solid var(--line2);border-radius:14px;
+  padding:14px 16px;display:flex;flex-direction:column;gap:10px;
+  box-shadow:0 12px 40px rgba(0,0,0,.55),0 0 18px rgba(240,165,0,.12);
+  transition:transform .35s cubic-bezier(.34,1.3,.5,1)}
+#pwaInstall.show{transform:translateX(-50%) translateY(0)}
+#pwaInstall .pi-row{display:flex;align-items:center;gap:12px}
+#pwaInstall .pi-icon{width:44px;height:44px;border-radius:11px;flex-shrink:0}
+#pwaInstall .pi-title{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:16px;color:var(--amber);line-height:1.15}
+#pwaInstall .pi-sub{font-size:11.5px;color:var(--sub);font-weight:600;margin-top:2px}
+#pwaInstall .pi-btns{display:flex;gap:8px;justify-content:flex-end}
+#pwaInstall .pi-btn{border:none;border-radius:8px;padding:8px 16px;font-weight:800;font-size:12.5px;cursor:pointer;font-family:'Nunito',sans-serif}
+#pwaInstall .pi-yes{background:var(--amber);color:#0d1117}
+#pwaInstall .pi-yes:active{filter:brightness(1.1)}
+#pwaInstall .pi-no{background:transparent;color:var(--sub);border:1px solid var(--line)}
+#pwaInstall .pi-ios{font-size:12px;color:var(--text);line-height:1.5}
+#pwaInstall .pi-ios b{color:var(--amber2)}
+</style>
+<div id="pwaInstall" role="dialog" aria-label="Install SmartBell" style="display:none">
+  <div class="pi-row">
+    <img class="pi-icon" src="icons/icon-192.png" alt="SmartBell"/>
+    <div>
+      <div class="pi-title">Install SmartBell</div>
+      <div class="pi-sub" id="pwaInstallSub">Add it to your home screen for one-tap access.</div>
+    </div>
+  </div>
+  <div class="pi-ios" id="pwaIosSteps" style="display:none">
+    Tap <b>Share</b> <span style="font-size:14px">&#8682;</span> in Safari, then <b>Add to Home Screen</b>.
+  </div>
+  <div class="pi-btns">
+    <button type="button" class="pi-btn pi-no" id="pwaInstallNo">Not now</button>
+    <button type="button" class="pi-btn pi-yes" id="pwaInstallYes">Install</button>
+  </div>
+</div>
+<script>
+(function(){
+  var box=document.getElementById("pwaInstall"),
+      yes=document.getElementById("pwaInstallYes"),
+      no=document.getElementById("pwaInstallNo"),
+      iosSteps=document.getElementById("pwaIosSteps"),
+      sub=document.getElementById("pwaInstallSub"),
+      deferred=null,
+      DISMISS_KEY="sb_install_dismissed",
+      DISMISS_DAYS=7;
+
+  function standalone(){
+    return (window.matchMedia&&window.matchMedia("(display-mode: standalone)").matches)
+        || window.navigator.standalone===true;
+  }
+  function isIOS(){
+    return /iphone|ipad|ipod/i.test(navigator.userAgent)
+        || (navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+  }
+  function recentlyDismissed(){
+    var t=Number(localStorage.getItem(DISMISS_KEY)||0);
+    return t&&Date.now()-t<DISMISS_DAYS*864e5;
+  }
+  function show(){
+    if(standalone()||recentlyDismissed())return;
+    box.style.display="flex";
+    requestAnimationFrame(function(){requestAnimationFrame(function(){box.classList.add("show");});});
+  }
+  function hide(){
+    box.classList.remove("show");
+    setTimeout(function(){box.style.display="none";},400);
+  }
+
+  window.addEventListener("beforeinstallprompt",function(e){
+    e.preventDefault();
+    deferred=e;
+    show();
+  });
+
+  yes.addEventListener("click",function(){
+    if(deferred){
+      deferred.prompt();
+      deferred.userChoice.finally(function(){deferred=null;hide();});
+    }else{
+      hide(); /* iOS: instructions were the content */
+    }
+  });
+  no.addEventListener("click",function(){
+    localStorage.setItem(DISMISS_KEY,String(Date.now()));
+    hide();
+  });
+  window.addEventListener("appinstalled",function(){
+    hide();
+    if(typeof toast==="function")toast("SmartBell installed","success");
+  });
+
+  /* iOS Safari never fires beforeinstallprompt: show Share > Add to Home Screen steps */
+  if(isIOS()&&!standalone()){
+    sub.textContent="Install this app on your iPhone.";
+    iosSteps.style.display="block";
+    yes.textContent="Got it";
+    window.addEventListener("load",function(){setTimeout(show,1500);});
+  }
+
+  if("serviceWorker" in navigator){
+    window.addEventListener("load",function(){
+      navigator.serviceWorker.register("sw.js").catch(function(){});
+    });
+  }
 })();
 </script>
 </body>
