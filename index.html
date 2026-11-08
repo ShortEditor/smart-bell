@@ -800,7 +800,7 @@ function setupListeners() {
   onValue(ref(db,"examSchedule"),   s => { examSchedule   = s.val()||{}; renderExmBells(); renderDash(); calcNext(); });
   onValue(ref(db,"holidays"),       s => { holidays        = s.val()||{}; renderHol(); renderDash(); calcNext(); });
   onValue(ref(db,"holidayRanges"),  s => { holidayRanges   = s.val()||{}; renderHol(); calcNext(); });
-  onValue(ref(db,"examDates"),      s => { examDates       = s.val()||{}; renderEd(); renderDash(); calcNext(); });
+  onValue(ref(db,"examDates"),      s => { examDates       = s.val()||{}; renderEd(); renderExmBells(); renderDash(); calcNext(); });
   onValue(ref(db,"status"),         s => { dbAccessError=""; esp32St = s.val()||{}; renderESP(); renderWiFiConfig(); renderWiFiTestResult(); renderManualResult(); });
   onValue(ref(db,"config/wifi"),    s => { wifiConfig      = s.val()||{}; renderWiFiConfig(); });
   onValue(ref(db,"config/timeConfig"), s => { timeConfig  = s.val()||{}; renderRTCSettings(); });
