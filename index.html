@@ -217,6 +217,8 @@ pre.cb{background:var(--ink);border:1px solid var(--line);border-radius:8px;padd
 </style>
 </head>
 <body>
+<!-- ════ DEMO PREVIEW BANNER (only shown on non-production hosts) ════ -->
+<div id="demoBanner" style="display:none;background:linear-gradient(90deg,#f0a500,#ffc107);color:#0d1117;text-align:center;font-weight:800;font-size:12px;padding:7px 12px;letter-spacing:.3px">DEMO PREVIEW — data stays in this browser · the live bell is not connected</div>
 <!-- ════ LOGIN GATE (username + password, Firebase Auth) ════ -->
 <div id="authGate" style="position:fixed;inset:0;z-index:100000;background:var(--ink);display:flex;align-items:center;justify-content:center;padding:16px">
   <form id="loginForm" autocomplete="on" style="width:100%;max-width:340px;background:var(--ink2);border:1px solid var(--line);border-radius:12px;padding:22px;display:flex;flex-direction:column;gap:10px">
@@ -256,6 +258,19 @@ pre.cb{background:var(--ink);border:1px solid var(--line);border-radius:8px;padd
     </div>
   </div>
 </div>
+
+<script>
+/* Preview/demo builds never contact Firebase: hide the login gate and config
+   modal before the deferred module runs. Production hosts are whitelisted;
+   every other host (Vercel previews, localhost, custom) fails closed to demo. */
+window.SB_PROD_HOSTS=["smart-bell-ten.vercel.app","shorteditor.github.io","smart-bell-b2fc0.web.app","smart-bell-b2fc0.firebaseapp.com"];
+window.SB_IS_DEMO=!window.SB_PROD_HOSTS.includes(location.hostname);
+if(window.SB_IS_DEMO){
+  document.getElementById("demoBanner").style.display="block";
+  document.getElementById("authGate").style.display="none";
+  document.getElementById("cfgModal").style.display="none";
+}
+</script>
 
 <div id="toast"></div>
 
@@ -315,6 +330,7 @@ pre.cb{background:var(--ink);border:1px solid var(--line);border-radius:8px;padd
   <button class="tb active" onclick="showTab('dashboard')">Dashboard</button>
   <button class="tb" onclick="showTab('regular')">Regular TT</button>
   <button class="tb" onclick="showTab('exam')">Exam TT</button>
+  <button class="tb" onclick="showTab('templates')">Templates</button>
   <button class="tb" onclick="showTab('holidays')">Holidays</button>
   <button class="tb" onclick="showTab('esp32')">ESP32 Status</button>
   <button class="tb" onclick="showTab('account')">Account</button>
@@ -404,6 +420,65 @@ pre.cb{background:var(--ink);border:1px solid var(--line);border-radius:8px;padd
       <button class="btn" style="border-color:rgba(248,81,73,.4);color:var(--rose);font-size:11px;padding:4px 12px;margin-left:auto" onclick="deleteCompletedExams()">🗑 Delete Past Exams</button>
     </div>
     <div id="exmList"><p class="emp">No exam bells added</p></div>
+  </div>
+</div>
+
+<!-- ════ TIMING TEMPLATES ════ -->
+<div class="tab-pane" id="tab-templates">
+  <div class="alert a-info" style="margin-bottom:12px">
+    💾 Save a set of bell timings once, then reuse it: <strong>select a date, select a template, select FN or AN</strong>.
+    Applying adds the template's bells to that date's exam schedule. FN = forenoon (morning), AN = afternoon.
+  </div>
+
+  <!-- Apply template -->
+  <div class="card" style="border-left-color:var(--lime)">
+    <div class="ct" style="color:var(--lime)">⚡ Apply Template to a Date</div>
+    <div class="fr">
+      <div class="fd"><label>Date</label><input type="date" id="apDate"/></div>
+      <div class="fd"><label>Template</label><select id="apTpl"><option value="">— Select Template —</option></select></div>
+      <div class="fd"><label>Session</label>
+        <div class="rr">
+          <label class="rl"><input type="radio" name="apSession" value="fn" checked/> FN (Forenoon)</label>
+          <label class="rl"><input type="radio" name="apSession" value="an"/> AN (Afternoon)</label>
+          <label class="rl"><input type="radio" name="apSession" value="both"/> Both</label>
+        </div>
+      </div>
+    </div>
+    <div id="apPreview" role="status" style="font-size:12px;color:var(--sub);margin-bottom:10px;min-height:14px"></div>
+    <button class="btn btn-g" onclick="applyTemplate()">✓ Apply to Date</button>
+  </div>
+
+  <!-- Create template -->
+  <div class="card" style="border-left-color:var(--teal)">
+    <div class="ct" style="color:var(--teal)">➕ Create Template</div>
+    <div class="rf2">
+      <input type="text" id="tplName" placeholder="Template name, e.g. Semester Exam" maxlength="40"/>
+      <button class="btn btn-t" onclick="createTemplate()">+ Create</button>
+    </div>
+  </div>
+
+  <!-- Add bell to template -->
+  <div class="card" style="border-left-color:var(--amber)">
+    <div class="ct" style="color:var(--amber)">🔔 Add Bell to Template</div>
+    <div class="fr">
+      <div class="fd"><label>Template</label><select id="btTpl"><option value="">— Select Template —</option></select></div>
+      <div class="fd"><label>Session</label>
+        <div class="rr">
+          <label class="rl"><input type="radio" name="btSession" value="fn" checked/> FN</label>
+          <label class="rl"><input type="radio" name="btSession" value="an"/> AN</label>
+        </div>
+      </div>
+      <div class="fd"><label>Label</label><input type="text" id="btLab" placeholder="e.g. Exam Start, Warning"/></div>
+      <div class="fd"><label>Bell Time</label><input type="time" id="btTim" value="09:00"/></div>
+      <div class="fd"><label>Duration (seconds)</label><input type="number" id="btDur" value="5" min="1" max="5" step="1"/></div>
+    </div>
+    <button class="btn btn-a" onclick="addTemplateBell()">+ Add Bell</button>
+  </div>
+
+  <!-- Saved templates -->
+  <div class="card" style="border-left-color:var(--slate)">
+    <div class="ct" style="color:var(--sub)">📋 Saved Templates <span id="tplCnt" style="color:var(--dim);font-size:11px"></span></div>
+    <div id="tplList"><p class="emp">No templates yet</p></div>
   </div>
 </div>
 
@@ -577,6 +652,7 @@ pre.cb{background:var(--ink);border:1px solid var(--line);border-radius:8px;padd
   <div class="card" style="border-left-color:var(--amber)">
     <div class="ct" style="color:var(--amber)">🔥 Firebase Realtime DB Structure (v5.0)</div>
     <pre>/regularPeriods, /examSchedule, /holidays, /holidayRanges, /examDates
+/templates                     — saved FN/AN bell sets (web app only; ESP32 does not read)
 /config/mode
 /config/wifi_primary_pending  — primary test request
 /config/wifi_pending          — secondary test request
@@ -668,10 +744,16 @@ const nowCloud=()=>Date.now()+serverOffset;
 const requestID=()=>[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,"0")).join("");
 let regularPeriods = {}, examSchedule = {}, holidays = {}, examDates = {}, esp32St = {};
 let holidayRanges  = {};
+let templates      = {};
 let wifiConfig     = {};
 let timeConfig     = {};   // /config/timeConfig — RTC sync state
 let wifiTestResult = {};   // /config/wifi_test_result — pending secondary test result
 let currentMode = localStorage.getItem("bellMode") || "regular";
+
+/* Demo/preview builds (any non-production hostname) run fully on browser-local
+   storage. Firebase is never contacted and no sign-in is attempted, so the
+   live bell database cannot be read or changed from a preview. */
+const IS_DEMO = window.SB_IS_DEMO === true;
 
 // ════ FIREBASE INIT ════
 
@@ -758,6 +840,70 @@ function startCloud(fbdb) {
   toast("Firebase connected \u2713", "success");
 }
 
+// ════ DEMO BACKEND — preview builds only ════
+// A minimal in-browser stand-in for the Firebase SDK subset this page uses.
+// Data persists to localStorage under a demo key; production is never contacted.
+const DEMO_DB_KEY = "smartbell_demo_db_v1";
+function initDemoBackend() {
+  if (cloudStarted) return; cloudStarted = true;
+  let data = {};
+  try { data = JSON.parse(localStorage.getItem(DEMO_DB_KEY)) || {}; } catch(e) { data = {}; }
+  const listeners = [];
+  const clone = v => v === undefined ? undefined : JSON.parse(JSON.stringify(v));
+  const getP = p => String(p).split("/").filter(Boolean).reduce((n,k) => n==null ? n : n[k], data);
+  const setP = (p, v) => {
+    const keys = String(p).split("/").filter(Boolean);
+    if (!keys.length) return;
+    let node = data;
+    for (let i=0; i<keys.length-1; i++) {
+      const k = keys[i];
+      if (typeof node[k] !== "object" || node[k] === null) node[k] = {};
+      node = node[k];
+    }
+    const last = keys[keys.length-1];
+    if (v === null || v === undefined) delete node[last]; else node[last] = v;
+  };
+  const persist = () => { try { localStorage.setItem(DEMO_DB_KEY, JSON.stringify(data)); } catch(e) {} };
+  const fire = () => { persist(); for (const l of listeners.slice()) l.cb({ val: () => clone(getP(l.path)) }); };
+  db = {};
+  fbOps = {
+    ref: (_db, p="") => ({ path: p }),
+    onValue: (r, cb) => { listeners.push({ path: r.path, cb }); cb({ val: () => clone(getP(r.path)) }); },
+    set: async (r, v) => { setP(r.path, clone(v)); fire(); },
+    update: async (_r, changes) => {
+      for (const [k,v] of Object.entries(changes || {})) {
+        if (v && typeof v === "object" && "__increment" in v) setP(k, (Number(getP(k))||0) + v.__increment);
+        else setP(k, clone(v));
+      }
+      fire();
+    },
+    increment: n => ({ __increment: n }),
+    runTransaction: async (r, fn) => {
+      let next;
+      try { next = fn(clone(getP(r.path))); } catch(e) { next = undefined; }
+      if (next === undefined) return { committed: false, snapshot: { val: () => clone(getP(r.path)) } };
+      setP(r.path, clone(next)); fire();
+      return { committed: true, snapshot: { val: () => clone(getP(r.path)) } };
+    },
+  };
+  fbReady = true; cloudConnected = true;
+}
+
+function startDemo() {
+  initDemoBackend();
+  setupListeners();
+  const dot = document.getElementById("fbDot"), lbl = document.getElementById("fbLbl");
+  dot.className = "fb-dot connected"; lbl.textContent = "Demo (local)";
+  const who = document.getElementById("acctWho");
+  if (who) who.textContent = "demo preview";
+  document.getElementById("pwForm").addEventListener("submit", e => {
+    e.preventDefault();
+    document.getElementById("pwErr").textContent = "Sign-in is disabled in this demo preview.";
+  });
+  document.getElementById("logoutBtn").addEventListener("click", () => toast("Sign-in is disabled in this demo preview","info"));
+  toast("Demo preview — data stays in this browser","info");
+}
+
 async function initFirebase(cfg) {
   setFbStatus("connecting");
   try {
@@ -801,6 +947,7 @@ function setupListeners() {
   onValue(ref(db,"holidays"),       s => { holidays        = s.val()||{}; renderHol(); renderDash(); calcNext(); });
   onValue(ref(db,"holidayRanges"),  s => { holidayRanges   = s.val()||{}; renderHol(); calcNext(); });
   onValue(ref(db,"examDates"),      s => { examDates       = s.val()||{}; renderEd(); renderExmBells(); renderDash(); calcNext(); });
+  onValue(ref(db,"templates"),       s => { templates        = s.val()||{}; renderTemplates(); });
   onValue(ref(db,"status"),         s => { dbAccessError=""; esp32St = s.val()||{}; renderESP(); renderWiFiConfig(); renderWiFiTestResult(); renderManualResult(); });
   onValue(ref(db,"config/wifi"),    s => { wifiConfig      = s.val()||{}; renderWiFiConfig(); });
   onValue(ref(db,"config/timeConfig"), s => { timeConfig  = s.val()||{}; renderRTCSettings(); });
@@ -825,6 +972,7 @@ async function fbSet(path,data) {
 }
 async function fbDel(path){return fbSet(path,null);}
 function deviceReady() {
+  if(IS_DEMO){toast("The live bell is not connected in this demo preview","info");return false;}
   if(dbAccessError){toast("Firebase access error: "+dbAccessError,"error");return false;}
   const raw=Number(esp32St.heartbeat)||0,hb=raw>1e12?raw:raw*1000,age=nowCloud()-hb;
   if(!cloudConnected){toast("This page is disconnected from Firebase","error");return false;}
@@ -935,6 +1083,77 @@ window.delExamBell = async function(key) {
     await bumpScheduleVersion();
     toast("Exam bell removed","info");
   }
+};
+
+// ════ TIMING TEMPLATES CRUD ════
+// Templates are reusable named sets of FN (forenoon) and AN (afternoon) bells.
+// Applying a template writes ordinary examSchedule + examDates entries, which
+// the ESP32 already understands — templates themselves are web-app data only.
+const tplKey = name => "tpl_" + name.toLowerCase().replace(/[^a-z0-9]+/g,"_").replace(/^_+|_+$/g,"").slice(0,30);
+
+window.createTemplate = async function() {
+  const name = document.getElementById("tplName").value.trim();
+  if (!name) { toast("Enter a template name","error"); return; }
+  const key = tplKey(name);
+  if (!key) { toast("Template name needs at least one letter or number","error"); return; }
+  if (templates[key]) { toast("A template with this name already exists","error"); return; }
+  if (await fbSet("templates/" + key, { name, createdAt: nowCloud() })) {
+    document.getElementById("tplName").value = "";
+    toast("Template created ✓","success");
+  }
+};
+
+window.delTemplate = async function(key) {
+  if (await fbSet("templates/" + key, null)) toast("Template deleted. Bells already applied to dates stay.","info");
+};
+
+window.addTemplateBell = async function() {
+  const key     = document.getElementById("btTpl").value;
+  const session = (document.querySelector('input[name="btSession"]:checked')||{}).value;
+  const label   = document.getElementById("btLab").value.trim();
+  const time    = document.getElementById("btTim").value;
+  const duration = readDurationInput(document.getElementById("btDur").value);
+  if (!key || !templates[key]) { toast("Select a template","error"); return; }
+  if (session !== "fn" && session !== "an") { toast("Select FN or AN","error"); return; }
+  if (duration === null) { toast("Duration must be 1–"+MAX_RING_SEC+" whole seconds","error"); return; }
+  if (!label || !time) { toast("Label and time are required","error"); return; }
+  const bellKey = time.replace(":","");
+  if (await fbSet("templates/" + key + "/" + session + "/" + bellKey, { label, time, duration })) {
+    document.getElementById("btLab").value = "";
+    toast("Bell added to " + templates[key].name + " (" + session.toUpperCase() + ") ✓","success");
+  }
+};
+
+window.delTemplateBell = async function(key, session, bellKey) {
+  if (await fbSet("templates/" + key + "/" + session + "/" + bellKey, null)) toast("Bell removed from template","info");
+};
+
+// Select date → select template → select FN or AN → write that session's bells
+// as exam bells for the date in one atomic update (adds the exam date if new).
+window.applyTemplate = async function() {
+  const date    = document.getElementById("apDate").value;
+  const key     = document.getElementById("apTpl").value;
+  const session = (document.querySelector('input[name="apSession"]:checked')||{}).value;
+  if (!date) { toast("Select a date","error"); return; }
+  if (!key || !templates[key]) { toast("Select a template","error"); return; }
+  if (!session) { toast("Select FN or AN","error"); return; }
+  const sessions = session === "both" ? ["fn","an"] : [session];
+  const bells = [];
+  for (const s of sessions)
+    for (const [,b] of Object.entries((templates[key] && templates[key][s]) || {}).sort((a,b)=>a[1].time.localeCompare(b[1].time)))
+      bells.push(b);
+  if (!bells.length) { toast("This template has no " + sessions.map(s=>s.toUpperCase()).join("/") + " bells yet","error"); return; }
+  if (!fbReady || !cloudConnected) { toast("Firebase is offline","error"); return; }
+  const changes = {};
+  const dateKey = date.replace(/-/g,"");
+  if (!examDates[dateKey]) changes["examDates/" + dateKey] = { date };
+  for (const b of bells)
+    changes["examSchedule/exam_" + date + "_" + b.time.replace(":","")] = { date, time: b.time, label: b.label, duration: b.duration };
+  changes.scheduleVersion = fbOps.increment(1);
+  try {
+    await fbOps.update(fbOps.ref(db), changes);
+    toast("Applied " + bells.length + " bell" + (bells.length>1?"s":"") + " to " + date + " (" + sessions.map(s=>s.toUpperCase()).join("+") + ") ✓","success");
+  } catch(e) { toast("Apply failed: " + e.message,"error"); }
 };
 
 // ════ HOLIDAYS CRUD ════
@@ -1340,7 +1559,7 @@ const bellRow = (p, delFn, key) =>
     <div class="bm">Duration: ${esc(p.duration)} seconds${Number(p.duration)>MAX_RING_SEC?" ⚠ over the "+MAX_RING_SEC+"s limit - edit and re-save":""}</div>
   </div><button class="btn btn-t" data-test-duration="${esc(p.duration)}">Test ${esc(p.duration)}s now</button><button class="btn btn-d" data-delete="${delFn}" data-key="${esc(key)}">✕</button></div>`;
 
-document.addEventListener("click",e=>{const t=e.target.closest("[data-test-duration]");if(t){window.manualRing(t.dataset.testDuration);return;}const b=e.target.closest("[data-delete]");if(b&&["delRegPeriod","delExamDate","delExamBell","delHoliday","delHolidayRange"].includes(b.dataset.delete))window[b.dataset.delete](b.dataset.key);});
+document.addEventListener("click",e=>{const t=e.target.closest("[data-test-duration]");if(t){window.manualRing(t.dataset.testDuration);return;}const b=e.target.closest("[data-delete]");if(b&&["delRegPeriod","delExamDate","delExamBell","delHoliday","delHolidayRange"].includes(b.dataset.delete))window[b.dataset.delete](b.dataset.key);const tb=e.target.closest("[data-tpldel]");if(tb){const[k,s,bk]=tb.dataset.tpldel.split("|");window.delTemplateBell(k,s,bk);return;}const ta=e.target.closest("[data-tpldelall]");if(ta){window.delTemplate(ta.dataset.tpldelall);return;}});
 
 function renderReg() {
   const sorted = Object.entries(regularPeriods).sort((a,b)=>a[1].time.localeCompare(b[1].time));
@@ -1374,6 +1593,55 @@ function renderExmBells() {
         : `<p class="emp" style="padding-left:10px">No bells for this date</p>`}
     </div>`;
   }).join("");
+}
+
+function renderTemplates() {
+  const list = Object.entries(templates).sort((a,b)=>(a[1].name||"").localeCompare(b[1].name||""));
+  const cnt = document.getElementById("tplCnt");
+  if (cnt) cnt.textContent = list.length ? `(${list.length})` : "";
+  const opts = `<option value="">— Select Template —</option>` +
+    list.map(([k,t])=>`<option value="${esc(k)}">${esc(t.name)}</option>`).join("");
+  for (const id of ["apTpl","btTpl"]) {
+    const sel = document.getElementById(id);
+    if (sel) { const cur = sel.value; sel.innerHTML = opts; sel.value = cur; }
+  }
+  const tplList = document.getElementById("tplList");
+  if (!tplList) return;
+  const sec = (k, t, s) => {
+    const bells = Object.entries(t[s]||{}).sort((a,b)=>a[1].time.localeCompare(b[1].time));
+    return `<div style="flex:1;min-width:220px">
+      <div class="eg-hdr">${s==="fn"?"☀️ FN — Forenoon":"🌙 AN — Afternoon"}</div>
+      ${bells.length ? bells.map(([bk,b])=>`<div class="lr"><div class="bt">${esc(b.time)}</div>
+        <div style="flex:1"><div class="bl">${esc(b.label)}</div>
+        <div class="bm">Duration: ${esc(b.duration)} seconds</div></div>
+        <button class="btn btn-d" data-tpldel="${esc(k)}|${esc(s)}|${esc(bk)}">✕</button></div>`).join("")
+        : `<p class="emp">No bells</p>`}
+    </div>`;
+  };
+  tplList.innerHTML = list.length ? list.map(([k,t])=>`<div class="eg" style="border:1px solid var(--line);border-radius:8px;padding:10px 12px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
+      <div style="font-weight:800;font-size:14px">${esc(t.name)}</div>
+      <button class="btn btn-d" data-tpldelall="${esc(k)}" title="Delete template">✕</button>
+    </div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap">${sec(k,t,"fn")}${sec(k,t,"an")}</div>
+  </div>`).join("")
+    : `<p class="emp">No templates yet. Create one above, add its FN and AN bells, then apply it to a date.</p>`;
+  updateApplyPreview();
+}
+
+function updateApplyPreview() {
+  const el = document.getElementById("apPreview");
+  if (!el) return;
+  const date = document.getElementById("apDate").value;
+  const key  = document.getElementById("apTpl").value;
+  const session = (document.querySelector('input[name="apSession"]:checked')||{}).value || "fn";
+  if (!key || !templates[key]) { el.textContent = ""; return; }
+  const sessions = session === "both" ? ["fn","an"] : [session];
+  let n = 0;
+  for (const s of sessions) n += Object.keys((templates[key] && templates[key][s]) || {}).length;
+  el.textContent = n
+    ? `Will add ${n} bell${n>1?"s":""} (${sessions.map(s=>s.toUpperCase()).join(" + ")}) to ${date||"—"}. Bells already on that date stay; a bell at the same time is replaced.`
+    : "This template has no " + sessions.map(s=>s.toUpperCase()).join("/") + " bells yet.";
 }
 
 function renderHol() {
@@ -1462,7 +1730,7 @@ function renderDash() {
 
 // ════ TAB SWITCHING ════
 window.showTab = function(name) {
-  const panes = ["dashboard","regular","exam","holidays","esp32","account"];
+  const panes = ["dashboard","regular","exam","templates","holidays","esp32","account"];
   panes.forEach(p => document.getElementById("tab-"+p).classList.toggle("visible", p===name));
   document.querySelectorAll(".tb").forEach((b,i) => b.classList.toggle("active", panes[i]===name));
 };
@@ -1491,6 +1759,9 @@ window.demoMode = function() {
 // ════ STARTUP ════
 const todStr = todayIST();
 document.getElementById("newED").value   = todStr;
+document.getElementById("apDate").value  = todStr;
+["apDate","apTpl"].forEach(id => document.getElementById(id).addEventListener("change", updateApplyPreview));
+document.querySelectorAll('input[name="apSession"]').forEach(r => r.addEventListener("change", updateApplyPreview));
 document.getElementById("hDat").value    = todStr;
 document.getElementById("hrStart").value = todStr;
 document.getElementById("hrEnd").value   = todStr;
@@ -1511,14 +1782,18 @@ const PROJECT_CONFIG = {
   messagingSenderId: "449105244523",
   appId:             "1:449105244523:web:879ec2a24250b4b04f5c2e"
 };
-document.getElementById("cfgModal").style.display="none";
-initFirebase(PROJECT_CONFIG);
+if (IS_DEMO) {
+  startDemo();
+} else {
+  document.getElementById("cfgModal").style.display="none";
+  initFirebase(PROJECT_CONFIG);
+}
 </script>
 
 <script>
 /* Ring duration inputs: reject typing/pasting above MAX 5 and show the error under the box */
 (function(){
-  ["manualDuration","rDur","eDur"].forEach(function(id){
+  ["manualDuration","rDur","eDur","btDur"].forEach(function(id){
     var el=document.getElementById(id); if(!el) return;
     var err=document.createElement("div");
     err.setAttribute("role","alert");
