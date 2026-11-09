@@ -426,8 +426,8 @@ if(window.SB_IS_DEMO){
 <!-- ════ TIMING TEMPLATES ════ -->
 <div class="tab-pane" id="tab-templates">
   <div class="alert a-info" style="margin-bottom:12px">
-    💾 Save a set of bell timings once, then reuse it: <strong>select a date, select a template, select FN or AN</strong>.
-    Applying adds the template's bells to that date's exam schedule. FN = forenoon (morning), AN = afternoon.
+    💾 Save a set of bell timings once, then reuse it: <strong>select a date, select a template, select FN or AN, and choose Exam TT or Regular TT</strong>.
+    Exam TT adds the bells to that date's exam schedule; Regular TT adds them to the everyday timetable (no date needed). FN = forenoon (morning), AN = afternoon.
   </div>
 
   <!-- Apply template -->
@@ -443,9 +443,15 @@ if(window.SB_IS_DEMO){
           <label class="rl"><input type="radio" name="apSession" value="both"/> Both</label>
         </div>
       </div>
+      <div class="fd"><label>Apply to</label>
+        <div class="rr">
+          <label class="rl"><input type="radio" name="apTarget" value="exam" checked/> Exam TT</label>
+          <label class="rl"><input type="radio" name="apTarget" value="regular"/> Regular TT</label>
+        </div>
+      </div>
     </div>
     <div id="apPreview" role="status" style="font-size:12px;color:var(--sub);margin-bottom:10px;min-height:14px"></div>
-    <button class="btn btn-g" onclick="applyTemplate()">✓ Apply to Date</button>
+    <button class="btn btn-g" onclick="applyTemplate()">✓ Apply Template</button>
   </div>
 
   <!-- Create template -->
@@ -1128,13 +1134,22 @@ window.delTemplateBell = async function(key, session, bellKey) {
   if (await fbSet("templates/" + key + "/" + session + "/" + bellKey, null)) toast("Bell removed from template","info");
 };
 
-// Select date → select template → select FN or AN → write that session's bells
-// as exam bells for the date in one atomic update (adds the exam date if new).
+// Select template → select FN or AN → choose Exam TT or Regular TT → write that
+// session's bells in one atomic update. Exam TT targets one date (adds the exam
+// date if new); Regular TT targets the everyday timetable, which has no dates.
+function applyTarget() {
+  return (document.querySelector('input[name="apTarget"]:checked')||{}).value || "exam";
+}
+function syncApplyTarget() {
+  document.getElementById("apDate").disabled = applyTarget() === "regular";
+  updateApplyPreview();
+}
 window.applyTemplate = async function() {
+  const target  = applyTarget();
   const date    = document.getElementById("apDate").value;
   const key     = document.getElementById("apTpl").value;
   const session = (document.querySelector('input[name="apSession"]:checked')||{}).value;
-  if (!date) { toast("Select a date","error"); return; }
+  if (target === "exam" && !date) { toast("Select a date","error"); return; }
   if (!key || !templates[key]) { toast("Select a template","error"); return; }
   if (!session) { toast("Select FN or AN","error"); return; }
   const sessions = session === "both" ? ["fn","an"] : [session];
@@ -1145,14 +1160,22 @@ window.applyTemplate = async function() {
   if (!bells.length) { toast("This template has no " + sessions.map(s=>s.toUpperCase()).join("/") + " bells yet","error"); return; }
   if (!fbReady || !cloudConnected) { toast("Firebase is offline","error"); return; }
   const changes = {};
-  const dateKey = date.replace(/-/g,"");
-  if (!examDates[dateKey]) changes["examDates/" + dateKey] = { date };
-  for (const b of bells)
-    changes["examSchedule/exam_" + date + "_" + b.time.replace(":","")] = { date, time: b.time, label: b.label, duration: b.duration };
+  if (target === "regular") {
+    for (const b of bells)
+      changes["regularPeriods/period_" + b.time.replace(":","")] = { time: b.time, label: b.label, duration: b.duration };
+  } else {
+    const dateKey = date.replace(/-/g,"");
+    if (!examDates[dateKey]) changes["examDates/" + dateKey] = { date };
+    for (const b of bells)
+      changes["examSchedule/exam_" + date + "_" + b.time.replace(":","")] = { date, time: b.time, label: b.label, duration: b.duration };
+  }
   changes.scheduleVersion = fbOps.increment(1);
+  const sessTxt = sessions.map(s=>s.toUpperCase()).join("+");
   try {
     await fbOps.update(fbOps.ref(db), changes);
-    toast("Applied " + bells.length + " bell" + (bells.length>1?"s":"") + " to " + date + " (" + sessions.map(s=>s.toUpperCase()).join("+") + ") ✓","success");
+    toast(target === "regular"
+      ? "Applied " + bells.length + " bell" + (bells.length>1?"s":"") + " to Regular TT (" + sessTxt + ") ✓"
+      : "Applied " + bells.length + " bell" + (bells.length>1?"s":"") + " to " + date + " (" + sessTxt + ") ✓","success");
   } catch(e) { toast("Apply failed: " + e.message,"error"); }
 };
 
@@ -1632,6 +1655,7 @@ function renderTemplates() {
 function updateApplyPreview() {
   const el = document.getElementById("apPreview");
   if (!el) return;
+  const target = applyTarget();
   const date = document.getElementById("apDate").value;
   const key  = document.getElementById("apTpl").value;
   const session = (document.querySelector('input[name="apSession"]:checked')||{}).value || "fn";
@@ -1639,9 +1663,10 @@ function updateApplyPreview() {
   const sessions = session === "both" ? ["fn","an"] : [session];
   let n = 0;
   for (const s of sessions) n += Object.keys((templates[key] && templates[key][s]) || {}).length;
-  el.textContent = n
-    ? `Will add ${n} bell${n>1?"s":""} (${sessions.map(s=>s.toUpperCase()).join(" + ")}) to ${date||"—"}. Bells already on that date stay; a bell at the same time is replaced.`
-    : "This template has no " + sessions.map(s=>s.toUpperCase()).join("/") + " bells yet.";
+  if (!n) { el.textContent = "This template has no " + sessions.map(s=>s.toUpperCase()).join("/") + " bells yet."; return; }
+  el.textContent = target === "regular"
+    ? `Will add ${n} bell${n>1?"s":""} (${sessions.map(s=>s.toUpperCase()).join(" + ")}) to the regular timetable — rings every regular day. Existing periods stay; one at the same time is replaced.`
+    : `Will add ${n} bell${n>1?"s":""} (${sessions.map(s=>s.toUpperCase()).join(" + ")}) to ${date||"—"}. Bells already on that date stay; a bell at the same time is replaced.`;
 }
 
 function renderHol() {
@@ -1762,6 +1787,8 @@ document.getElementById("newED").value   = todStr;
 document.getElementById("apDate").value  = todStr;
 ["apDate","apTpl"].forEach(id => document.getElementById(id).addEventListener("change", updateApplyPreview));
 document.querySelectorAll('input[name="apSession"]').forEach(r => r.addEventListener("change", updateApplyPreview));
+document.querySelectorAll('input[name="apTarget"]').forEach(r => r.addEventListener("change", syncApplyTarget));
+syncApplyTarget();
 document.getElementById("hDat").value    = todStr;
 document.getElementById("hrStart").value = todStr;
 document.getElementById("hrEnd").value   = todStr;
