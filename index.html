@@ -428,6 +428,7 @@ if(window.SB_IS_DEMO){
   <div class="alert a-info" style="margin-bottom:12px">
     💾 Save a set of bell timings once, then reuse it: <strong>select a date, select a template, select FN or AN, and choose Exam TT or Regular TT</strong>.
     Exam TT adds the bells to that date's exam schedule; Regular TT adds them to the everyday timetable (no date needed). FN = forenoon (morning), AN = afternoon.
+    <div id="tplStorageNote" style="margin-top:6px"></div>
   </div>
 
   <!-- Apply template -->
@@ -760,6 +761,7 @@ let currentMode = localStorage.getItem("bellMode") || "regular";
    storage. Firebase is never contacted and no sign-in is attempted, so the
    live bell database cannot be read or changed from a preview. */
 const IS_DEMO = window.SB_IS_DEMO === true;
+document.getElementById("tplStorageNote").textContent = IS_DEMO ? "Demo templates stay in this browser and are not copied to Firebase." : "Templates are saved to Firebase and sync across signed-in devices. Saving a template does not change the live timetable; Apply does.";
 
 // ════ FIREBASE INIT ════
 
@@ -1095,7 +1097,31 @@ window.delExamBell = async function(key) {
 // Templates are reusable named sets of FN (forenoon) and AN (afternoon) bells.
 // Applying a template writes ordinary examSchedule + examDates entries, which
 // the ESP32 already understands — templates themselves are web-app data only.
-const tplKey = name => "tpl_" + name.toLowerCase().replace(/[^a-z0-9]+/g,"_").replace(/^_+|_+$/g,"").slice(0,30);
+const tplKey = name => {
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g,"_").replace(/^_+|_+$/g,"").slice(0,30);
+  return slug ? "tpl_" + slug : "";
+};
+const validTemplateTime = time => typeof time === "string" && /^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/.test(time);
+function templateChanges(target, date, bells) {
+  const changes = {};
+  const times = new Set(bells.map(b => b.time));
+  if (target === "regular") {
+    // Older entries can have arbitrary keys. Remove matching times atomically.
+    for (const [key, bell] of Object.entries(regularPeriods))
+      if (times.has(bell.time)) changes["regularPeriods/" + key] = null;
+    for (const b of bells)
+      changes["regularPeriods/period_" + b.time.replace(":","")] = { time: b.time, label: b.label, duration: b.duration };
+  } else {
+    const dateKey = date.replace(/-/g,"");
+    if (!examDates[dateKey]) changes["examDates/" + dateKey] = { date };
+    for (const [key, bell] of Object.entries(examSchedule))
+      if (bell.date === date && times.has(bell.time)) changes["examSchedule/" + key] = null;
+    for (const b of bells)
+      changes["examSchedule/exam_" + date + "_" + b.time.replace(":","")] = { date, time: b.time, label: b.label, duration: b.duration };
+  }
+  changes.scheduleVersion = fbOps.increment(1);
+  return changes;
+}
 
 window.createTemplate = async function() {
   const name = document.getElementById("tplName").value.trim();
@@ -1122,7 +1148,7 @@ window.addTemplateBell = async function() {
   if (!key || !templates[key]) { toast("Select a template","error"); return; }
   if (session !== "fn" && session !== "an") { toast("Select FN or AN","error"); return; }
   if (duration === null) { toast("Duration must be 1–"+MAX_RING_SEC+" whole seconds","error"); return; }
-  if (!label || !time) { toast("Label and time are required","error"); return; }
+  if (!label || !validTemplateTime(time)) { toast("Label and a valid time are required","error"); return; }
   const bellKey = time.replace(":","");
   if (await fbSet("templates/" + key + "/" + session + "/" + bellKey, { label, time, duration })) {
     document.getElementById("btLab").value = "";
@@ -1151,25 +1177,24 @@ window.applyTemplate = async function() {
   const session = (document.querySelector('input[name="apSession"]:checked')||{}).value;
   if (target === "exam" && !date) { toast("Select a date","error"); return; }
   if (!key || !templates[key]) { toast("Select a template","error"); return; }
-  if (!session) { toast("Select FN or AN","error"); return; }
+  if (!["fn","an","both"].includes(session)) { toast("Select FN or AN","error"); return; }
+  if (!["exam","regular"].includes(target)) { toast("Select Exam TT or Regular TT","error"); return; }
   const sessions = session === "both" ? ["fn","an"] : [session];
   const bells = [];
   for (const s of sessions)
-    for (const [,b] of Object.entries((templates[key] && templates[key][s]) || {}).sort((a,b)=>a[1].time.localeCompare(b[1].time)))
+    for (const [,b] of Object.entries((templates[key] && templates[key][s]) || {}))
       bells.push(b);
   if (!bells.length) { toast("This template has no " + sessions.map(s=>s.toUpperCase()).join("/") + " bells yet","error"); return; }
   if (!fbReady || !cloudConnected) { toast("Firebase is offline","error"); return; }
-  const changes = {};
-  if (target === "regular") {
-    for (const b of bells)
-      changes["regularPeriods/period_" + b.time.replace(":","")] = { time: b.time, label: b.label, duration: b.duration };
-  } else {
-    const dateKey = date.replace(/-/g,"");
-    if (!examDates[dateKey]) changes["examDates/" + dateKey] = { date };
-    for (const b of bells)
-      changes["examSchedule/exam_" + date + "_" + b.time.replace(":","")] = { date, time: b.time, label: b.label, duration: b.duration };
+  // Revalidate saved data before any live timetable write, not only form input.
+  if (bells.some(b => !b || !validTemplateTime(b.time) || typeof b.label !== "string" || !b.label.trim() || !Number.isInteger(b.duration) || b.duration < 1 || b.duration > MAX_RING_SEC)) {
+    toast("Template contains an invalid bell. Use a label, valid time and 1-" + MAX_RING_SEC + " whole seconds.","error"); return;
   }
-  changes.scheduleVersion = fbOps.increment(1);
+  if (new Set(bells.map(b => b.time)).size !== bells.length) {
+    toast("FN and AN contain the same time. Remove the duplicate before applying both.","error"); return;
+  }
+  if (!IS_DEMO && !confirm("Apply " + bells.length + " bell(s) to " + (target === "regular" ? "the everyday Regular TT" : "Exam TT on " + date) + "? This changes the live bell timetable. Bells at the same time will be replaced.")) return;
+  const changes = templateChanges(target, date, bells);
   const sessTxt = sessions.map(s=>s.toUpperCase()).join("+");
   try {
     await fbOps.update(fbOps.ref(db), changes);
@@ -1954,4 +1979,4 @@ if (IS_DEMO) {
 })();
 </script>
 </body>
-</html>
+  </html>
